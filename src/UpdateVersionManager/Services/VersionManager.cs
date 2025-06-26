@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using UpdateVersionManager.Models;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace UpdateVersionManager.Services;
 
@@ -11,17 +12,20 @@ public class VersionManager
     private readonly FileService _fileService;
     private readonly SymbolicLinkService _symbolicLinkService;
     private readonly UpdateVersionManagerSettings _settings;
+    private readonly ILogger<VersionManager> _logger;
 
     public VersionManager(
         GoogleDriveService googleDriveService,
         FileService fileService,
         SymbolicLinkService symbolicLinkService,
-        IOptions<UpdateVersionManagerSettings> settings)
+        IOptions<UpdateVersionManagerSettings> settings,
+        ILogger<VersionManager> logger)
     {
         _googleDriveService = googleDriveService;
         _fileService = fileService;
         _symbolicLinkService = symbolicLinkService;
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public string? GetCurrentVersion()
@@ -116,15 +120,18 @@ public class VersionManager
 
     public async Task UseVersionAsync(string version)
     {
+        _logger.LogInformation("嘗試切換到版本 {Version}", version);
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
         if (!Directory.Exists(versionDir))
         {
+            _logger.LogWarning("版本 {Version} 不存在", version);
             Console.WriteLine($"版本 {version} 不存在");
             Console.WriteLine("使用 'uvm list' 查看可用版本");
             return;
         }
 
         await SetCurrentVersionAsync(version);
+        _logger.LogInformation("成功切換至版本 {Version}", version);
         Console.WriteLine($"已切換至版本 {version}");
     }
 
@@ -133,6 +140,7 @@ public class VersionManager
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
         if (!Directory.Exists(versionDir))
         {
+            _logger.LogWarning("嘗試刪除不存在的版本 {Version}", version);
             Console.WriteLine($"版本 {version} 不存在");
             return Task.CompletedTask;
         }
@@ -140,11 +148,13 @@ public class VersionManager
         var currentVersion = GetCurrentVersion();
         if (version == currentVersion)
         {
+            _logger.LogWarning("嘗試刪除當前使用的版本 {Version}", version);
             Console.WriteLine($"無法刪除當前使用的版本 {version}");
             return Task.CompletedTask;
         }
 
         Directory.Delete(versionDir, true);
+        _logger.LogInformation("已刪除版本 {Version}", version);
         Console.WriteLine($"已刪除版本 {version}");
         return Task.CompletedTask;
     }
@@ -153,11 +163,13 @@ public class VersionManager
     {
         try
         {
+            _logger.LogInformation("開始自動更新檢查");
             Console.WriteLine("[Updater] 檢查更新中...");
             var versionList = await GetRemoteVersionsAsync();
 
             if (!versionList.Any())
             {
+                _logger.LogWarning("無可用版本");
                 Console.WriteLine("[Updater] 無可用版本");
                 return;
             }
@@ -165,21 +177,25 @@ public class VersionManager
             var latestVersion = versionList.OrderByDescending(v => v.Version).First();
             var currentVersion = GetCurrentVersion();
 
+            _logger.LogInformation("版本比較 - 最新: {LatestVersion}, 當前: {CurrentVersion}", 
+                latestVersion.Version, currentVersion);
             Console.WriteLine($"[Updater] 最新版本: {latestVersion.Version}");
             Console.WriteLine($"[Updater] 當前版本: {currentVersion}");
 
             if (latestVersion.Version == currentVersion)
             {
+                _logger.LogInformation("已是最新版本，無需更新");
                 Console.WriteLine("[Updater] 已是最新版本");
                 return;
             }
 
+            _logger.LogInformation("發現新版本 {NewVersion}，開始自動更新", latestVersion.Version);
             Console.WriteLine($"[Updater] 發現新版本 {latestVersion.Version}，開始自動更新...");
-            // 呼叫專門的自動安裝方法，不需要用戶互動
             await InstallVersionSilentAsync(latestVersion.Version);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "自動更新過程發生錯誤");
             Console.WriteLine($"[Updater] 更新失敗: {ex.Message}");
         }
     }
@@ -187,11 +203,13 @@ public class VersionManager
     // 新增一個靜默安裝方法，專門給自動更新使用
     private async Task InstallVersionSilentAsync(string version)
     {
+        _logger.LogInformation("開始靜默安裝版本 {Version}", version);
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
 
         // 檢查版本是否已安裝
         if (Directory.Exists(versionDir))
         {
+            _logger.LogInformation("版本 {Version} 已存在，直接切換", version);
             Console.WriteLine($"[Updater] 版本 {version} 已存在，直接切換");
             await SetCurrentVersionAsync(version);
             Console.WriteLine($"[Updater] ✅ 已切換到版本 {version}");
@@ -204,10 +222,12 @@ public class VersionManager
 
         if (versionInfo == null)
         {
+            _logger.LogError("找不到版本資訊 {Version}", version);
             Console.WriteLine($"[Updater] ❌ 找不到版本 {version}");
             return;
         }
 
+        _logger.LogInformation("開始下載版本 {Version}，下載URL: {DownloadUrl}", version, versionInfo.DownloadUrl);
         Console.WriteLine($"[Updater] 正在下載版本 {version}...");
 
         // 下載檔案
@@ -216,18 +236,22 @@ public class VersionManager
         // 驗證 SHA256
         if (!string.IsNullOrEmpty(versionInfo.Sha256))
         {
+            _logger.LogInformation("開始驗證檔案完整性，期待 SHA256: {ExpectedHash}", versionInfo.Sha256);
             Console.WriteLine("[Updater] 驗證檔案完整性...");
             if (!await _fileService.VerifyFileHashAsync(_settings.ZipFilePath, versionInfo.Sha256))
             {
+                _logger.LogError("檔案 SHA256 驗證失敗，期待: {ExpectedHash}", versionInfo.Sha256);
                 Console.WriteLine("[Updater] ❌ 檔案驗證失敗，安裝中止");
                 return;
             }
+            _logger.LogInformation("檔案完整性驗證通過");
         }
 
         // 解壓縮
         if (Directory.Exists(_settings.TempExtractPath))
             Directory.Delete(_settings.TempExtractPath, true);
 
+        _logger.LogInformation("開始解壓縮到臨時目錄: {TempPath}", _settings.TempExtractPath);
         Console.WriteLine("[Updater] 解壓縮中...");
         ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
 
@@ -235,15 +259,20 @@ public class VersionManager
         Directory.CreateDirectory(_settings.LocalBaseDir);
         Directory.Move(_settings.TempExtractPath, versionDir);
 
+        _logger.LogInformation("版本 {Version} 安裝完成，安裝路徑: {InstallPath}", version, versionDir);
         Console.WriteLine($"[Updater] 版本 {version} 安裝完成");
 
         // 自動切換到新版本（無需確認）
         await SetCurrentVersionAsync(version);
+        _logger.LogInformation("已自動切換到版本 {Version}", version);
         Console.WriteLine($"[Updater] ✅ 已自動切換到版本 {version}");
 
         // 清理
         if (File.Exists(_settings.ZipFilePath))
+        {
             File.Delete(_settings.ZipFilePath);
+            _logger.LogDebug("清理下載檔案 {ZipFile}", _settings.ZipFilePath);
+        }
     }
 
     // 修改原有的 InstallVersionAsync 方法，保持互動式安裝的行為

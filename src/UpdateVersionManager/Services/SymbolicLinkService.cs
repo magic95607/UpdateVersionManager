@@ -1,23 +1,25 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace UpdateVersionManager.Services;
 
 public class SymbolicLinkService
 {
     private readonly FileService _fileService;
+    private readonly ILogger<SymbolicLinkService> _logger;
 
-    public SymbolicLinkService(FileService fileService)
+    public SymbolicLinkService(FileService fileService, ILogger<SymbolicLinkService> logger)
     {
         _fileService = fileService;
+        _logger = logger;
     }
 
     public async Task<bool> CreateSymbolicLinkAsync(string linkPath, string targetPath)
     {
         try
         {
-            Console.WriteLine($"[SymbolicLink] 嘗試建立符號連結:");
-            Console.WriteLine($"[SymbolicLink]   來源: {Path.GetFullPath(targetPath)}");
-            Console.WriteLine($"[SymbolicLink]   目標: {linkPath}");
+            _logger.LogInformation("嘗試建立符號連結: {LinkPath} -> {TargetPath}", linkPath, Path.GetFullPath(targetPath));
+            Console.WriteLine($"[SymbolicLink] 嘗試建立符號連結: {Path.GetFileName(linkPath)} -> {Path.GetFileName(targetPath)}");
 
             var process = new Process
             {
@@ -39,23 +41,23 @@ public class SymbolicLinkService
 
             if (process.ExitCode == 0)
             {
-                Console.WriteLine($"[SymbolicLink] 符號連結建立成功");
-                if (!string.IsNullOrEmpty(output))
-                    Console.WriteLine($"[SymbolicLink] 輸出: {output.Trim()}");
+                _logger.LogInformation("符號連結建立成功，輸出: {Output}", output.Trim());
+                Console.WriteLine($"[SymbolicLink] ✅ 符號連結建立成功");
                 return true;
             }
             else
             {
-                Console.WriteLine($"[SymbolicLink] 符號連結建立失敗 (退出碼: {process.ExitCode})");
-                if (!string.IsNullOrEmpty(output))
-                    Console.WriteLine($"[SymbolicLink] 輸出: {output.Trim()}");
-                if (!string.IsNullOrEmpty(error))
-                    Console.WriteLine($"[SymbolicLink] 錯誤: {error.Trim()}");
-
+                _logger.LogWarning("符號連結建立失敗，退出碼: {ExitCode}, 錯誤: {Error}", process.ExitCode, error.Trim());
+                
                 // 檢查常見的錯誤原因
                 if (error.Contains("需要提高的權限") || error.Contains("privilege"))
                 {
-                    Console.WriteLine("[SymbolicLink] 提示: 需要管理員權限才能建立符號連結");
+                    _logger.LogWarning("需要管理員權限才能建立符號連結");
+                    Console.WriteLine("[SymbolicLink] ⚠️ 需要管理員權限才能建立符號連結");
+                }
+                else
+                {
+                    Console.WriteLine($"[SymbolicLink] ❌ 符號連結建立失敗");
                 }
 
                 return false;
@@ -63,7 +65,8 @@ public class SymbolicLinkService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SymbolicLink] 建立符號連結時發生例外: {ex.Message}");
+            _logger.LogError(ex, "建立符號連結時發生例外");
+            Console.WriteLine($"[SymbolicLink] ❌ 建立符號連結失敗: {ex.Message}");
             return false;
         }
     }

@@ -8,6 +8,7 @@ public class UpdateVersionManagerSettings
     public string TempExtractPath { get; set; } = string.Empty;
     public string ZipFilePath { get; set; } = string.Empty;
     public string AppLinkName { get; set; } = string.Empty;
+    public bool VerboseOutput { get; set; } = false;
 
     public string VersionListUrl => $"https://drive.google.com/uc?export=download&id={GoogleDriveVersionListFileId}";
 }
