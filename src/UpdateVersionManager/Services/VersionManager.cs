@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 using UpdateVersionManager.Models;
+using Microsoft.Extensions.Options;
 
 namespace UpdateVersionManager.Services;
 
@@ -9,37 +10,33 @@ public class VersionManager
     private readonly GoogleDriveService _googleDriveService;
     private readonly FileService _fileService;
     private readonly SymbolicLinkService _symbolicLinkService;
+    private readonly UpdateVersionManagerSettings _settings;
 
-    // 設定常數
-    private const string GoogleDriveVersionListFileId = "1HaA7rtbn_t7LWH67Pfr-tMV7cT7w7-E2"; // Google Drive 上的版本列表檔案 ID
-    private const string LocalBaseDir = "app_versions";
-    private const string CurrentVersionFile = "current_version.txt";
-    private const string TempExtractPath = "temp_update";
-    private const string ZipFilePath = "update.zip";
-    private const string AppLinkName = "current";
-
-    private readonly string _versionListUrl = $"https://drive.google.com/uc?export=download&id={GoogleDriveVersionListFileId}";
-
-    public VersionManager()
+    public VersionManager(
+        GoogleDriveService googleDriveService,
+        FileService fileService,
+        SymbolicLinkService symbolicLinkService,
+        IOptions<UpdateVersionManagerSettings> settings)
     {
-        _googleDriveService = new GoogleDriveService();
-        _fileService = new FileService();
-        _symbolicLinkService = new SymbolicLinkService(_fileService);
+        _googleDriveService = googleDriveService;
+        _fileService = fileService;
+        _symbolicLinkService = symbolicLinkService;
+        _settings = settings.Value;
     }
 
     public string? GetCurrentVersion()
     {
-        if (File.Exists(CurrentVersionFile))
-            return File.ReadAllText(CurrentVersionFile).Trim();
+        if (File.Exists(_settings.CurrentVersionFile))
+            return File.ReadAllText(_settings.CurrentVersionFile).Trim();
         return null;
     }
 
     public List<string> GetInstalledVersions()
     {
-        if (!Directory.Exists(LocalBaseDir))
+        if (!Directory.Exists(_settings.LocalBaseDir))
             return new List<string>();
 
-        return Directory.GetDirectories(LocalBaseDir)
+        return Directory.GetDirectories(_settings.LocalBaseDir)
             .Select(d => Path.GetFileName(d))
             .OrderByDescending(v => v)
             .ToList();
@@ -49,76 +46,48 @@ public class VersionManager
     {
         try
         {
-            var json = await _googleDriveService.DownloadTextAsync(_versionListUrl);
+            var json = await _googleDriveService.DownloadTextAsync(_settings.VersionListUrl);
+            var versionListData = JsonSerializer.Deserialize<JsonElement>(json);
 
-            // 調試：輸出原始 JSON
-            Console.WriteLine("取得的 JSON 內容:");
-            Console.WriteLine(json);
-            Console.WriteLine("--- JSON 結束 ---");
-
-            var versionListData = JsonDocument.Parse(json).RootElement;
-            var versions = new List<VersionInfo>();
-
-            // 檢查 JSON 結構
             if (!versionListData.TryGetProperty("versions", out var versionsArray))
             {
-                Console.WriteLine("錯誤: JSON 中找不到 'versions' 屬性");
-                Console.WriteLine("可用的屬性:");
-                foreach (var property in versionListData.EnumerateObject())
-                {
-                    Console.WriteLine($"  - {property.Name}");
-                }
-                return versions;
+                throw new JsonException("JSON 中找不到 'versions' 屬性");
             }
+
+            var versionList = new List<VersionInfo>();
 
             foreach (var versionElement in versionsArray.EnumerateArray())
             {
-                try
+                var version = GetStringProperty(versionElement, "version", "Version");
+                var downloadUrl = GetStringProperty(versionElement, "downloadUrl", "DownloadUrl");
+                var sha256 = GetStringProperty(versionElement, "sha256", "Sha256");
+                var size = GetLongProperty(versionElement, "size", "Size");
+                var releaseDate = GetStringProperty(versionElement, "releaseDate", "ReleaseDate");
+                var description = GetStringProperty(versionElement, "description", "Description");
+
+                if (!string.IsNullOrEmpty(version) && !string.IsNullOrEmpty(downloadUrl))
                 {
-                    // 支援兩種命名格式：camelCase 和 PascalCase
-                    var version = GetStringProperty(versionElement, "version", "Version");
-                    var downloadUrl = GetStringProperty(versionElement, "downloadUrl", "DownloadUrl");
-
-                    if (string.IsNullOrEmpty(version))
-                    {
-                        Console.WriteLine("警告: 版本項目缺少 'version' 或 'Version' 欄位，跳過");
-                        continue;
-                    }
-
-                    if (string.IsNullOrEmpty(downloadUrl))
-                    {
-                        Console.WriteLine($"警告: 版本 {version} 缺少 'downloadUrl' 或 'DownloadUrl' 欄位，跳過");
-                        continue;
-                    }
-
-                    var versionInfo = new VersionInfo
+                    versionList.Add(new VersionInfo
                     {
                         Version = version,
                         DownloadUrl = downloadUrl,
-                        Sha256 = GetStringProperty(versionElement, "sha256", "Sha256"),
-                        Size = GetLongProperty(versionElement, "size", "Size"),
-                        ReleaseDate = GetStringProperty(versionElement, "releaseDate", "ReleaseDate") ?? "",
-                        Description = GetStringProperty(versionElement, "description", "Description") ?? ""
-                    };
-
-                    versions.Add(versionInfo);
-                    Console.WriteLine($"成功解析版本: {versionInfo.Version}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"警告: 解析版本項目時發生錯誤: {ex.Message}");
+                        Sha256 = sha256 ?? string.Empty,
+                        Size = size,
+                        ReleaseDate = releaseDate ?? string.Empty,
+                        Description = description ?? string.Empty
+                    });
                 }
             }
 
-            return versions;
+            return versionList;
         }
         catch (JsonException ex)
         {
-            throw new Exception($"JSON 解析錯誤: {ex.Message}");
+            throw new Exception($"解析版本清單失敗: {ex.Message}");
         }
         catch (Exception ex)
         {
-            throw new Exception($"取得遠端版本失敗: {ex.Message}");
+            throw new Exception($"取得版本清單失敗: {ex.Message}");
         }
     }
 
@@ -147,7 +116,7 @@ public class VersionManager
 
     public async Task UseVersionAsync(string version)
     {
-        var versionDir = Path.Combine(LocalBaseDir, version);
+        var versionDir = Path.Combine(_settings.LocalBaseDir, version);
         if (!Directory.Exists(versionDir))
         {
             Console.WriteLine($"版本 {version} 不存在");
@@ -159,36 +128,37 @@ public class VersionManager
         Console.WriteLine($"已切換至版本 {version}");
     }
 
-    public async Task CleanVersionAsync(string version)
+    public Task CleanVersionAsync(string version)
     {
-        var versionDir = Path.Combine(LocalBaseDir, version);
+        var versionDir = Path.Combine(_settings.LocalBaseDir, version);
         if (!Directory.Exists(versionDir))
         {
             Console.WriteLine($"版本 {version} 不存在");
-            return;
+            return Task.CompletedTask;
         }
 
         var currentVersion = GetCurrentVersion();
         if (version == currentVersion)
         {
             Console.WriteLine($"無法刪除當前使用的版本 {version}");
-            return;
+            return Task.CompletedTask;
         }
 
         Directory.Delete(versionDir, true);
         Console.WriteLine($"已刪除版本 {version}");
+        return Task.CompletedTask;
     }
 
     public async Task AutoUpdateAsync()
     {
         try
         {
-            Console.WriteLine("[Updater] 檢查最新版本...");
+            Console.WriteLine("[Updater] 檢查更新中...");
             var versionList = await GetRemoteVersionsAsync();
 
             if (!versionList.Any())
             {
-                Console.WriteLine("[Updater] 無法取得版本資訊");
+                Console.WriteLine("[Updater] 無可用版本");
                 return;
             }
 
@@ -217,7 +187,7 @@ public class VersionManager
     // 新增一個靜默安裝方法，專門給自動更新使用
     private async Task InstallVersionSilentAsync(string version)
     {
-        var versionDir = Path.Combine(LocalBaseDir, version);
+        var versionDir = Path.Combine(_settings.LocalBaseDir, version);
 
         // 檢查版本是否已安裝
         if (Directory.Exists(versionDir))
@@ -241,13 +211,13 @@ public class VersionManager
         Console.WriteLine($"[Updater] 正在下載版本 {version}...");
 
         // 下載檔案
-        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, ZipFilePath);
+        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
 
         // 驗證 SHA256
         if (!string.IsNullOrEmpty(versionInfo.Sha256))
         {
             Console.WriteLine("[Updater] 驗證檔案完整性...");
-            if (!await _fileService.VerifyFileHashAsync(ZipFilePath, versionInfo.Sha256))
+            if (!await _fileService.VerifyFileHashAsync(_settings.ZipFilePath, versionInfo.Sha256))
             {
                 Console.WriteLine("[Updater] ❌ 檔案驗證失敗，安裝中止");
                 return;
@@ -255,15 +225,15 @@ public class VersionManager
         }
 
         // 解壓縮
-        if (Directory.Exists(TempExtractPath))
-            Directory.Delete(TempExtractPath, true);
+        if (Directory.Exists(_settings.TempExtractPath))
+            Directory.Delete(_settings.TempExtractPath, true);
 
         Console.WriteLine("[Updater] 解壓縮中...");
-        ZipFile.ExtractToDirectory(ZipFilePath, TempExtractPath);
+        ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
 
         // 移動到版本目錄
-        Directory.CreateDirectory(LocalBaseDir);
-        Directory.Move(TempExtractPath, versionDir);
+        Directory.CreateDirectory(_settings.LocalBaseDir);
+        Directory.Move(_settings.TempExtractPath, versionDir);
 
         Console.WriteLine($"[Updater] 版本 {version} 安裝完成");
 
@@ -272,14 +242,14 @@ public class VersionManager
         Console.WriteLine($"[Updater] ✅ 已自動切換到版本 {version}");
 
         // 清理
-        if (File.Exists(ZipFilePath))
-            File.Delete(ZipFilePath);
+        if (File.Exists(_settings.ZipFilePath))
+            File.Delete(_settings.ZipFilePath);
     }
 
     // 修改原有的 InstallVersionAsync 方法，保持互動式安裝的行為
     public async Task InstallVersionAsync(string version)
     {
-        var versionDir = Path.Combine(LocalBaseDir, version);
+        var versionDir = Path.Combine(_settings.LocalBaseDir, version);
 
         // 檢查版本是否已安裝
         if (Directory.Exists(versionDir))
@@ -309,13 +279,13 @@ public class VersionManager
 
         // 下載檔案
         Console.WriteLine("下載中...");
-        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, ZipFilePath);
+        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
 
         // 驗證 SHA256
         if (!string.IsNullOrEmpty(versionInfo.Sha256))
         {
             Console.WriteLine("驗證檔案完整性...");
-            if (!await _fileService.VerifyFileHashAsync(ZipFilePath, versionInfo.Sha256))
+            if (!await _fileService.VerifyFileHashAsync(_settings.ZipFilePath, versionInfo.Sha256))
             {
                 Console.WriteLine("檔案驗證失敗，安裝中止");
                 return;
@@ -323,15 +293,15 @@ public class VersionManager
         }
 
         // 解壓縮
-        if (Directory.Exists(TempExtractPath))
-            Directory.Delete(TempExtractPath, true);
+        if (Directory.Exists(_settings.TempExtractPath))
+            Directory.Delete(_settings.TempExtractPath, true);
 
         Console.WriteLine("解壓縮中...");
-        ZipFile.ExtractToDirectory(ZipFilePath, TempExtractPath);
+        ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
 
         // 移動到版本目錄
-        Directory.CreateDirectory(LocalBaseDir);
-        Directory.Move(TempExtractPath, versionDir);
+        Directory.CreateDirectory(_settings.LocalBaseDir);
+        Directory.Move(_settings.TempExtractPath, versionDir);
 
         Console.WriteLine($"✅ 版本 {version} 安裝完成");
 
@@ -345,18 +315,19 @@ public class VersionManager
         }
 
         // 清理
-        if (File.Exists(ZipFilePath))
-            File.Delete(ZipFilePath);
+        if (File.Exists(_settings.ZipFilePath))
+            File.Delete(_settings.ZipFilePath);
     }
 
     private async Task SetCurrentVersionAsync(string version)
     {
         // 更新版本記錄
-        await File.WriteAllTextAsync(CurrentVersionFile, version);
+        await File.WriteAllTextAsync(_settings.CurrentVersionFile, version);
 
         // 更新捷徑資料夾
-        var versionDir = Path.Combine(LocalBaseDir, version);
-        var linkPath = Path.Combine(Directory.GetCurrentDirectory(), AppLinkName);
+        var versionDir = Path.Combine(_settings.LocalBaseDir, version);
+        var linkPath = Path.Combine(Directory.GetCurrentDirectory(), _settings.AppLinkName);
+
         await _symbolicLinkService.UpdateAppLinkAsync(version, versionDir, linkPath);
     }
 }

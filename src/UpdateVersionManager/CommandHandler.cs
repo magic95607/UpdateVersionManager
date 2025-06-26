@@ -4,7 +4,7 @@ namespace UpdateVersionManager;
 
 public static class CommandHandler
 {
-    public static async Task HandleCommand(string command, string[] parameters, VersionManager versionManager)
+    public static async Task HandleCommand(string command, string[] parameters, Services.VersionManager versionManager)
     {
         switch (command.ToLower())
         {
@@ -89,7 +89,7 @@ public static class CommandHandler
         Console.WriteLine("  help                                顯示此幫助訊息");
     }
 
-    private static void ListVersions(VersionManager versionManager)
+    private static void ListVersions(Services.VersionManager versionManager)
     {
         Console.WriteLine("已安裝的版本:");
         var versions = versionManager.GetInstalledVersions();
@@ -181,8 +181,30 @@ public static class CommandHandler
         var currentVersion = versionManager.GetCurrentVersion();
         Console.WriteLine($"當前版本: {currentVersion ?? "未設定"}");
 
-        var symbolicLinkService = new SymbolicLinkService(new FileService());
-        symbolicLinkService.ShowLinkInfo("current");
+        // 建立簡單的連結檢查
+        var linkPath = Path.Combine(Directory.GetCurrentDirectory(), "current");
+        if (Directory.Exists(linkPath))
+        {
+            var isSymLink = new DirectoryInfo(linkPath).Attributes.HasFlag(FileAttributes.ReparsePoint);
+            Console.WriteLine($"目錄類型: {(isSymLink ? "符號連結" : "一般資料夾")}");
+            
+            if (isSymLink)
+            {
+                try
+                {
+                    var dirInfo = new DirectoryInfo(linkPath);
+                    Console.WriteLine($"連結目標: {dirInfo.ResolveLinkTarget(true)?.FullName ?? "無法解析"}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"無法取得連結目標: {ex.Message}");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("目錄不存在: current");
+        }
 
         Console.WriteLine("\n=== 已安裝版本 ===");
         var installedVersions = versionManager.GetInstalledVersions();
