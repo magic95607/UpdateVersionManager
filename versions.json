@@ -1,0 +1,20 @@
+{
+    "versions": [
+        {
+            "version": "1.2.0",
+            "downloadUrl": "https://drive.google.com/uc?export=download&id=1GOXBXRCE4fIhpyA5MeAdM56XMaLGLM9O",
+            "sha256": "2970ac6457692a2a13df1c2dc53bf7dd8e824aae66fe0d3eeb1dd06fb14b0e64",
+            "size": 274,
+            "releaseDate": "2025-06-27",
+            "description": "Version 1.2.0"
+        },
+        {
+            "Version": "1.1.0",
+            "DownloadUrl": "https://drive.google.com/uc?export=download&id=1Wo8IDjopyvSO9HVe6uy31B28SoDvkErO",
+            "Sha256": "0b78267d1bfcd757f3483f49ed6c9eb859afad6dc28a8d5e1c31eec831acfb90",
+            "Size": 208,
+            "ReleaseDate": "2025-06-27",
+            "Description": "Version 1.1.0"
+        }
+    ]
+}
