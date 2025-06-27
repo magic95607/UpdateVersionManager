@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - '*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Run tests
+      run: dotnet test test/UpdateVersionManager.Tests/UpdateVersionManager.Tests.csproj --configuration Release --logger trx --results-directory "TestResults-${{ runner.os }}"
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ runner.os }}
+        path: TestResults-${{ runner.os }}
+
+  build:
+    needs: test
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            runtime: win-x64
+            extension: .exe
+          - os: ubuntu-latest
+            runtime: linux-x64
+            extension: ''
+          - os: macos-latest
+            runtime: osx-x64
+            extension: ''
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Get version from tag
+      id: get_version
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+    
+    - name: Restore dependencies
+      run: dotnet restore src/UpdateVersionManager/UpdateVersionManager.csproj
+    
+    - name: Publish single file
+      run: |
+        dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj \
+          -c Release \
+          -r ${{ matrix.runtime }} \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=false \
+          -p:Version=${{ steps.get_version.outputs.VERSION }} \
+          -p:AssemblyVersion=${{ steps.get_version.outputs.VERSION }}.0 \
+          -p:FileVersion=${{ steps.get_version.outputs.VERSION }}.0 \
+          -o publish/${{ matrix.runtime }}
+    
+    - name: Rename executable (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        mv publish/${{ matrix.runtime }}/uvm.exe publish/${{ matrix.runtime }}/uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}.exe
+    
+    - name: Rename executable (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        mv publish/${{ matrix.runtime }}/uvm publish/${{ matrix.runtime }}/uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}
+        chmod +x publish/${{ matrix.runtime }}/uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}
+    
+    - name: Calculate SHA256
+      shell: bash
+      run: |
+        cd publish/${{ matrix.runtime }}
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          FILE="uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}.exe"
+        else
+          FILE="uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}"
+        fi
+        
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          certutil -hashfile "$FILE" SHA256 | find /v ":" | find /v "CertUtil" > "$FILE.sha256"
+        else
+          sha256sum "$FILE" > "$FILE.sha256"
+        fi
+        
+        echo "SHA256 for $FILE:"
+        cat "$FILE.sha256"
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}
+        path: publish/${{ matrix.runtime }}/uvm-*
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Display structure of downloaded files
+      run: ls -la artifacts/
+    
+    - name: Prepare release files
+      run: |
+        mkdir -p release-files
+        find artifacts -name "uvm-*" -type f | while read file; do
+          cp "$file" release-files/
+        done
+        ls -la release-files/
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        cat > RELEASE_NOTES.md << 'EOF'
+        # UpdateVersionManager v${{ steps.get_version.outputs.VERSION }}
+        
+        ## 🚀 新功能
+        - 現代化架構：支援 appsettings.json 設定檔
+        - 整合 Serilog 日誌系統
+        - 依賴注入架構
+        - 自我更新功能 (`self-update`, `auto`, `quick-update`)
+        - 單一檔案發佈，無需額外依賴
+        
+        ## 📦 下載選項
+        
+        ### Windows
+        - `uvm-win-x64-v${{ steps.get_version.outputs.VERSION }}.exe` - Windows 64位元版本
+        
+        ### Linux  
+        - `uvm-linux-x64-v${{ steps.get_version.outputs.VERSION }}` - Linux 64位元版本
+        
+        ### macOS
+        - `uvm-osx-x64-v${{ steps.get_version.outputs.VERSION }}` - macOS 64位元版本
+        
+        ## 🔐 檔案驗證
+        每個檔案都附有 `.sha256` 檔案，請下載後驗證檔案完整性：
+        
+        ```bash
+        # Windows (PowerShell)
+        Get-FileHash uvm-win-x64-v${{ steps.get_version.outputs.VERSION }}.exe -Algorithm SHA256
+        
+        # Linux/macOS
+        sha256sum uvm-linux-x64-v${{ steps.get_version.outputs.VERSION }}
+        ```
+        
+        ## 📖 使用說明
+        
+        下載對應平台的執行檔後：
+        
+        ```bash
+        # Windows
+        .\uvm-win-x64-v${{ steps.get_version.outputs.VERSION }}.exe help
+        
+        # Linux/macOS (需要執行權限)
+        chmod +x uvm-linux-x64-v${{ steps.get_version.outputs.VERSION }}
+        ./uvm-linux-x64-v${{ steps.get_version.outputs.VERSION }} help
+        ```
+        
+        ## 🔄 自動更新
+        
+        執行檔支援自我更新：
+        ```bash
+        # 檢查並更新到最新版本
+        uvm self-update
+        
+        # 自動模式（適合腳本使用）
+        uvm auto
+        ```
+        
+        ## 📋 系統需求
+        - **Windows**: Windows 10/11 (x64)
+        - **Linux**: 現代 Linux 發行版 (x64)  
+        - **macOS**: macOS 10.15+ (x64)
+        - **記憶體**: 最少 50MB
+        - **磁碟空間**: 100MB（含版本檔案）
+        
+        ## 🐛 已知問題
+        - 符號連結功能在某些 Windows 環境下可能需要管理員權限
+        - 首次執行時會建立設定目錄
+        
+        ## 📝 變更日誌
+        詳細變更請參考 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+        EOF
+        
+        echo "Generated release notes:"
+        cat RELEASE_NOTES.md
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: UpdateVersionManager v${{ steps.get_version.outputs.VERSION }}
+        body_path: RELEASE_NOTES.md
+        files: |
+          release-files/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
