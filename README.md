@@ -2,6 +2,22 @@
 
 基於 Google Drive 的版本管理工具，支援自動更新和版本切換功能。
 
+## 快速開始
+
+### 下載預編譯版本
+
+從 [GitHub Releases](https://github.com/magic95607/UpdateVersionManager/releases/latest) 下載對應您作業系統的預編譯版本：
+
+- **Windows**: `uvm-win-x64-v*.exe`
+- **Linux**: `uvm-linux-x64-v*`  
+- **macOS**: `uvm-osx-x64-v*`
+
+下載後可直接執行，無需安裝 .NET 運行時。
+
+### 從原始碼建置
+
+如果您想要從原始碼建置，請參考下方的建置說明。
+
 ## 功能特色
 
 - 🚀 自動檢查並更新到最新版本
@@ -91,8 +107,28 @@ dotnet build
 # 執行應用程式
 dotnet run -- <command>
 
-# 發佈為單一執行檔
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+# 發佈為單一執行檔（推薦）
+dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+# 跨平台發佈
+# Windows 64位元
+dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+# Linux 64位元
+dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true
+
+# macOS 64位元
+dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+### 執行測試
+
+```bash
+# 執行所有測試
+dotnet test
+
+# 執行測試並生成報告
+dotnet test --configuration Release --logger trx --results-directory TestResults
 ```
 
 ## 技術架構

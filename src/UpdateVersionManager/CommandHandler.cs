@@ -1,4 +1,6 @@
 using UpdateVersionManager.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UpdateVersionManager;
 
@@ -233,7 +235,7 @@ public static class CommandHandler
 
         try
         {
-            var fileService = new FileService();
+            var fileService = new FileService(NullLogger<FileService>.Instance);
             output.WriteVerbose($"開始計算檔案 SHA256: {filePath}");
             output.WriteConsoleOnly($"計算檔案 SHA256: {filePath}");
             var hash = await fileService.CalculateFileHashAsync(filePath);
@@ -294,7 +296,7 @@ public static class CommandHandler
     {
         try
         {
-            var fileService = new FileService();
+            var fileService = new FileService(NullLogger<FileService>.Instance);
             var versionInfo = await fileService.GenerateVersionInfoAsync(version, zipFilePath, googleDriveFileId);
             await fileService.SaveVersionInfoToJsonAsync(versionInfo);
 

@@ -3,6 +3,8 @@ using UpdateVersionManager.Models;
 using FluentAssertions;
 using System.Text.Json;
 using System.IO.Compression;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace UpdateVersionManager.Tests.Services;
 
@@ -13,7 +15,8 @@ public class FileServiceTests : TestBase
 
     public FileServiceTests()
     {
-        _fileService = new FileService();
+        var mockLogger = new Mock<ILogger<FileService>>();
+        _fileService = new FileService(mockLogger.Object);
         _testFile = Path.Combine(TestDataPath, "test.txt");
     }
 

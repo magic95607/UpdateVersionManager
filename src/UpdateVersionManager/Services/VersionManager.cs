@@ -238,10 +238,16 @@ public class VersionManager
         {
             _logger.LogInformation("開始驗證檔案完整性，期待 SHA256: {ExpectedHash}", versionInfo.Sha256);
             Console.WriteLine("[Updater] 驗證檔案完整性...");
+            
+            var actualHash = await _fileService.CalculateFileHashAsync(_settings.ZipFilePath);
+            _logger.LogInformation("檔案實際 SHA256: {ActualHash}", actualHash);
+            
             if (!await _fileService.VerifyFileHashAsync(_settings.ZipFilePath, versionInfo.Sha256))
             {
-                _logger.LogError("檔案 SHA256 驗證失敗，期待: {ExpectedHash}", versionInfo.Sha256);
+                _logger.LogError("檔案 SHA256 驗證失敗，期待: {ExpectedHash}，實際: {ActualHash}", versionInfo.Sha256, actualHash);
                 Console.WriteLine("[Updater] ❌ 檔案驗證失敗，安裝中止");
+                Console.WriteLine($"[Updater] 期待的 SHA256: {versionInfo.Sha256}");
+                Console.WriteLine($"[Updater] 實際的 SHA256: {actualHash}");
                 return;
             }
             _logger.LogInformation("檔案完整性驗證通過");
@@ -278,53 +284,91 @@ public class VersionManager
     // 修改原有的 InstallVersionAsync 方法，保持互動式安裝的行為
     public virtual async Task InstallVersionAsync(string version)
     {
+        _logger.LogInformation("開始互動式安裝版本 {Version}", version);
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
 
         // 檢查版本是否已安裝
         if (Directory.Exists(versionDir))
         {
+            _logger.LogInformation("版本 {Version} 已存在，詢問是否重新安裝", version);
             Console.WriteLine($"版本 {version} 已安裝");
             Console.Write("是否要重新安裝? (y/N): ");
             var response = Console.ReadLine();
             if (response?.ToLower() != "y")
+            {
+                _logger.LogInformation("使用者取消重新安裝版本 {Version}", version);
                 return;
+            }
 
+            _logger.LogInformation("開始移除舊版本 {Version}", version);
             Directory.Delete(versionDir, true);
             Console.WriteLine($"已移除舊版本 {version}");
         }
 
         // 取得版本資訊
+        _logger.LogInformation("開始取得版本 {Version} 的遠端資訊", version);
         var versionList = await GetRemoteVersionsAsync();
         var versionInfo = versionList.FirstOrDefault(v => v.Version == version);
 
         if (versionInfo == null)
         {
+            _logger.LogError("找不到版本資訊 {Version}", version);
             Console.WriteLine($"找不到版本 {version}");
             Console.WriteLine("使用 'uvm ls-remote' 查看可用版本");
             return;
         }
 
+        _logger.LogInformation("開始安裝版本 {Version}，下載URL: {DownloadUrl}", version, versionInfo.DownloadUrl);
         Console.WriteLine($"正在安裝版本 {version}...");
 
         // 下載檔案
+        _logger.LogInformation("開始下載版本 {Version}", version);
         Console.WriteLine("下載中...");
         await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
+        _logger.LogInformation("版本 {Version} 下載完成", version);
+        
+        // 檢查下載的檔案大小
+        var downloadedFileInfo = new FileInfo(_settings.ZipFilePath);
+        _logger.LogInformation("下載檔案大小: {Size} bytes ({SizeMB:F2} MB)", downloadedFileInfo.Length, downloadedFileInfo.Length / (1024.0 * 1024.0));
+        Console.WriteLine($"下載完成，檔案大小: {downloadedFileInfo.Length / (1024.0 * 1024.0):F2} MB");
 
         // 驗證 SHA256
         if (!string.IsNullOrEmpty(versionInfo.Sha256))
         {
+            _logger.LogInformation("開始驗證檔案完整性，期待 SHA256: {ExpectedHash}", versionInfo.Sha256);
             Console.WriteLine("驗證檔案完整性...");
+            Console.WriteLine($"期待的 SHA256: {versionInfo.Sha256}");
+            
+            var actualHash = await _fileService.CalculateFileHashAsync(_settings.ZipFilePath);
+            _logger.LogInformation("檔案實際 SHA256: {ActualHash}", actualHash);
+            Console.WriteLine($"實際的 SHA256: {actualHash}");
+            
             if (!await _fileService.VerifyFileHashAsync(_settings.ZipFilePath, versionInfo.Sha256))
             {
-                Console.WriteLine("檔案驗證失敗，安裝中止");
+                _logger.LogError("檔案 SHA256 驗證失敗，期待: {ExpectedHash}，實際: {ActualHash}", versionInfo.Sha256, actualHash);
+                Console.WriteLine($"❌ 檔案驗證失敗，安裝中止");
+                Console.WriteLine($"期待的 SHA256: {versionInfo.Sha256}");
+                Console.WriteLine($"實際的 SHA256: {actualHash}");
+                Console.WriteLine("這可能表示：");
+                Console.WriteLine("1. 檔案在傳輸過程中損壞");
+                Console.WriteLine("2. 下載的不是正確的檔案（可能是 Google Drive 的錯誤頁面）");
+                Console.WriteLine("3. 版本清單中的 SHA256 值不正確");
                 return;
             }
+            _logger.LogInformation("檔案完整性驗證通過");
+            Console.WriteLine("✅ 檔案完整性驗證通過");
+        }
+        else
+        {
+            _logger.LogWarning("未提供 SHA256 值，跳過檔案完整性驗證");
+            Console.WriteLine("⚠️ 未提供 SHA256 值，跳過檔案完整性驗證");
         }
 
         // 解壓縮
         if (Directory.Exists(_settings.TempExtractPath))
             Directory.Delete(_settings.TempExtractPath, true);
 
+        _logger.LogInformation("開始解壓縮到臨時目錄: {TempPath}", _settings.TempExtractPath);
         Console.WriteLine("解壓縮中...");
         ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
 
@@ -332,6 +376,7 @@ public class VersionManager
         Directory.CreateDirectory(_settings.LocalBaseDir);
         Directory.Move(_settings.TempExtractPath, versionDir);
 
+        _logger.LogInformation("版本 {Version} 安裝完成，安裝路徑: {InstallPath}", version, versionDir);
         Console.WriteLine($"✅ 版本 {version} 安裝完成");
 
         // 詢問是否要切換到新版本（互動式）
@@ -339,13 +384,22 @@ public class VersionManager
         var switchResponse = Console.ReadLine();
         if (switchResponse?.ToLower() != "n")
         {
+            _logger.LogInformation("使用者選擇切換到版本 {Version}", version);
             await SetCurrentVersionAsync(version);
+            _logger.LogInformation("已切換到版本 {Version}", version);
             Console.WriteLine($"已切換到版本 {version}");
+        }
+        else
+        {
+            _logger.LogInformation("使用者選擇不切換到版本 {Version}", version);
         }
 
         // 清理
         if (File.Exists(_settings.ZipFilePath))
+        {
             File.Delete(_settings.ZipFilePath);
+            _logger.LogDebug("清理下載檔案 {ZipFile}", _settings.ZipFilePath);
+        }
     }
 
     private async Task SetCurrentVersionAsync(string version)
