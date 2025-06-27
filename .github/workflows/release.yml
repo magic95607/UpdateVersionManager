@@ -79,6 +79,7 @@ jobs:
       run: dotnet restore src/UpdateVersionManager/UpdateVersionManager.csproj
     
     - name: Publish single file
+      shell: bash
       run: |
         dotnet publish src/UpdateVersionManager/UpdateVersionManager.csproj \
           -c Release \
@@ -93,6 +94,7 @@ jobs:
     
     - name: Rename executable (Windows)
       if: matrix.os == 'windows-latest'
+      shell: bash
       run: |
         mv publish/${{ matrix.runtime }}/uvm.exe publish/${{ matrix.runtime }}/uvm-${{ matrix.runtime }}-v${{ steps.get_version.outputs.VERSION }}.exe
     
