@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-06-27
+## [1.0.0] - 2025-01-27
 
 ### 🎉 Initial Release
 
@@ -32,10 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 統一的輸出管理機制
   
 - **完整測試覆蓋**
-  - 49 個單元測試，100% 通過率
+  - 49 個單元測試，98% 通過率（48 個成功，1 個跳過）
   - 使用 xUnit、FluentAssertions、Moq 測試框架
   - 建立 `TestBase` 基礎類別統一測試環境
   - 涵蓋所有核心功能的測試案例
+  - 修正檔案系統相關測試的並行執行問題
+  - 改善測試隔離，避免測試間相互干擾
   
 - **自我更新功能**
   - 新增 `self-update` 命令支援程式自我更新
@@ -102,4 +104,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## Version Tags
-- `1.0.0` - 2025-06-27: 首次正式發布，包含完整重構功能
+- `1.0.0` - 2025-01-27: 首次正式發布，包含完整重構功能

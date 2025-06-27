@@ -39,8 +39,9 @@ public class CommandHandlerTests : TestBase
     public async Task HandleCommand_WithCurrentCommand_ShouldShowCurrentVersion()
     {
         // Arrange - 設定一個當前版本
-        Directory.CreateDirectory(Path.GetDirectoryName(TestSettings.CurrentVersionFile)!);
-        await File.WriteAllTextAsync(TestSettings.CurrentVersionFile, "1.0.0");
+        var currentVersionFile = TestSettings.CurrentVersionFile;
+        Directory.CreateDirectory(Path.GetDirectoryName(currentVersionFile)!);
+        await File.WriteAllTextAsync(currentVersionFile, "1.0.0");
 
         // Act
         await CommandHandler.HandleCommand("current", Array.Empty<string>(), _versionManager, _outputService);

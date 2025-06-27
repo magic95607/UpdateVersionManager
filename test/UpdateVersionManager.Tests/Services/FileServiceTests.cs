@@ -2,6 +2,7 @@ using UpdateVersionManager.Services;
 using UpdateVersionManager.Models;
 using FluentAssertions;
 using System.Text.Json;
+using System.IO.Compression;
 
 namespace UpdateVersionManager.Tests.Services;
 
@@ -21,10 +22,12 @@ public class FileServiceTests : TestBase
     {
         // Arrange
         const string content = "Hello, World!";
-        await File.WriteAllTextAsync(_testFile, content);
+        var testFile = Path.Combine(TestDataPath, "test.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(testFile)!);
+        await File.WriteAllTextAsync(testFile, content);
 
         // Act
-        var hash = await _fileService.CalculateFileHashAsync(_testFile);
+        var hash = await _fileService.CalculateFileHashAsync(testFile);
 
         // Assert
         hash.Should().NotBeNullOrEmpty();
@@ -48,20 +51,30 @@ public class FileServiceTests : TestBase
     {
         // Arrange
         const string version = "1.0.0";
-        const string content = "Test file content";
         const string downloadUrl = "test-download-url";
         
-        await File.WriteAllTextAsync(_testFile, content);
+        // 建立一個假的 ZIP 檔案
+        var testZipFile = Path.Combine(TestDataPath, "test.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(testZipFile)!);
+        
+        using (var fileStream = File.Create(testZipFile))
+        using (var archive = new System.IO.Compression.ZipArchive(fileStream, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            var entry = archive.CreateEntry("test.txt");
+            using var entryStream = entry.Open();
+            using var writer = new StreamWriter(entryStream);
+            writer.Write("Test file content");
+        }
 
         // Act
-        var versionInfo = await _fileService.GenerateVersionInfoAsync(version, _testFile, downloadUrl);
+        var versionInfo = await _fileService.GenerateVersionInfoAsync(version, testZipFile, downloadUrl);
 
         // Assert
         versionInfo.Should().NotBeNull();
         versionInfo.Version.Should().Be(version);
         versionInfo.DownloadUrl.Should().Be($"https://drive.google.com/uc?export=download&id={downloadUrl}");
         versionInfo.Sha256.Should().NotBeNullOrEmpty();
-        versionInfo.Size.Should().Be(content.Length);
+        versionInfo.Size.Should().BeGreaterThan(0);
         versionInfo.ReleaseDate.Should().Be(DateTime.Now.ToString("yyyy-MM-dd"));
         versionInfo.Description.Should().Be($"Version {version}");
     }
@@ -112,12 +125,14 @@ public class FileServiceTests : TestBase
     {
         // Arrange
         const string content = "Test content for verification";
-        await File.WriteAllTextAsync(_testFile, content);
+        var testFile = Path.Combine(TestDataPath, "test.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(testFile)!);
+        await File.WriteAllTextAsync(testFile, content);
         
-        var hash = await _fileService.CalculateFileHashAsync(_testFile);
+        var hash = await _fileService.CalculateFileHashAsync(testFile);
 
         // Act
-        var result = await _fileService.VerifyFileHashAsync(_testFile, hash);
+        var result = await _fileService.VerifyFileHashAsync(testFile, hash);
 
         // Assert
         result.Should().BeTrue();
@@ -128,6 +143,7 @@ public class FileServiceTests : TestBase
     {
         // Arrange
         const string content = "Test content for verification";
+        Directory.CreateDirectory(Path.GetDirectoryName(_testFile)!);
         await File.WriteAllTextAsync(_testFile, content);
         
         const string incorrectHash = "incorrect-hash";

@@ -64,6 +64,9 @@ public class IntegrationTests : TestBase
         var fileService = _serviceProvider.GetRequiredService<FileService>();
         var testFile = Path.Combine(TestDataPath, "integration_test.txt");
         const string content = "Integration test content";
+        
+        // 確保目錄存在
+        Directory.CreateDirectory(Path.GetDirectoryName(testFile)!);
         await File.WriteAllTextAsync(testFile, content);
 
         // Act
