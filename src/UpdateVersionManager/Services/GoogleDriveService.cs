@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace UpdateVersionManager.Services;
 
-public class GoogleDriveService : IDisposable
+public class GoogleDriveService : IGoogleDriveService
 {
     private readonly HttpClient _httpClient;
 

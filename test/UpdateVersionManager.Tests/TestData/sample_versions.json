@@ -1,0 +1,28 @@
+{
+  "versions": [
+    {
+      "version": "1.2.0",
+      "googleDriveFileId": "test-file-id-1-2-0",
+      "sha256": "abc123def456",
+      "size": 2048,
+      "releaseDate": "2025-06-27",
+      "description": "Version 1.2.0"
+    },
+    {
+      "version": "1.1.0",
+      "googleDriveFileId": "test-file-id-1-1-0",
+      "sha256": "def456ghi789",
+      "size": 1536,
+      "releaseDate": "2025-06-26",
+      "description": "Version 1.1.0"
+    },
+    {
+      "version": "1.0.0",
+      "googleDriveFileId": "test-file-id-1-0-0",
+      "sha256": "ghi789jkl012",
+      "size": 1024,
+      "releaseDate": "2025-06-25",
+      "description": "Version 1.0.0"
+    }
+  ]
+}

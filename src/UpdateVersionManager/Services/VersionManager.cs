@@ -8,16 +8,16 @@ namespace UpdateVersionManager.Services;
 
 public class VersionManager
 {
-    private readonly GoogleDriveService _googleDriveService;
-    private readonly FileService _fileService;
-    private readonly SymbolicLinkService _symbolicLinkService;
+    private readonly IGoogleDriveService _googleDriveService;
+    private readonly IFileService _fileService;
+    private readonly ISymbolicLinkService _symbolicLinkService;
     private readonly UpdateVersionManagerSettings _settings;
     private readonly ILogger<VersionManager> _logger;
 
     public VersionManager(
-        GoogleDriveService googleDriveService,
-        FileService fileService,
-        SymbolicLinkService symbolicLinkService,
+        IGoogleDriveService googleDriveService,
+        IFileService fileService,
+        ISymbolicLinkService symbolicLinkService,
         IOptions<UpdateVersionManagerSettings> settings,
         ILogger<VersionManager> logger)
     {
@@ -28,14 +28,14 @@ public class VersionManager
         _logger = logger;
     }
 
-    public string? GetCurrentVersion()
+    public virtual string? GetCurrentVersion()
     {
         if (File.Exists(_settings.CurrentVersionFile))
             return File.ReadAllText(_settings.CurrentVersionFile).Trim();
         return null;
     }
 
-    public List<string> GetInstalledVersions()
+    public virtual List<string> GetInstalledVersions()
     {
         if (!Directory.Exists(_settings.LocalBaseDir))
             return new List<string>();
@@ -118,7 +118,7 @@ public class VersionManager
         return 0;
     }
 
-    public async Task UseVersionAsync(string version)
+    public virtual async Task UseVersionAsync(string version)
     {
         _logger.LogInformation("嘗試切換到版本 {Version}", version);
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
@@ -135,7 +135,7 @@ public class VersionManager
         Console.WriteLine($"已切換至版本 {version}");
     }
 
-    public Task CleanVersionAsync(string version)
+    public virtual Task CleanVersionAsync(string version)
     {
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
         if (!Directory.Exists(versionDir))
@@ -159,7 +159,7 @@ public class VersionManager
         return Task.CompletedTask;
     }
 
-    public async Task AutoUpdateAsync()
+    public virtual async Task AutoUpdateAsync()
     {
         try
         {
@@ -276,7 +276,7 @@ public class VersionManager
     }
 
     // 修改原有的 InstallVersionAsync 方法，保持互動式安裝的行為
-    public async Task InstallVersionAsync(string version)
+    public virtual async Task InstallVersionAsync(string version)
     {
         var versionDir = Path.Combine(_settings.LocalBaseDir, version);
 

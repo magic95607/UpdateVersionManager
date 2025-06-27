@@ -4,7 +4,7 @@ using UpdateVersionManager.Models;
 
 namespace UpdateVersionManager.Services;
 
-public class FileService
+public class FileService : IFileService
 {
     public async Task<string> CalculateFileHashAsync(string filePath)
     {

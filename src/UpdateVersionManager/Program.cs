@@ -28,9 +28,9 @@ try
     var services = new ServiceCollection();
     services.Configure<UpdateVersionManagerSettings>(
         configuration.GetSection("UpdateVersionManager"));
-    services.AddSingleton<FileService>();
-    services.AddSingleton<GoogleDriveService>();
-    services.AddSingleton<SymbolicLinkService>();
+    services.AddSingleton<IFileService, FileService>();
+    services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
+    services.AddSingleton<ISymbolicLinkService, SymbolicLinkService>();
     services.AddSingleton<VersionManager>();
     services.AddSingleton<OutputService>();
     services.AddSingleton(provider => 

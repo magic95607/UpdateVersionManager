@@ -93,7 +93,7 @@ public class OutputService
     /// <summary>
     /// 只輸出到 Console，不記錄到 Log（用於純用戶介面顯示）
     /// </summary>
-    public void WriteConsoleOnly(string message)
+    public virtual void WriteConsoleOnly(string message)
     {
         Console.WriteLine(message);
     }

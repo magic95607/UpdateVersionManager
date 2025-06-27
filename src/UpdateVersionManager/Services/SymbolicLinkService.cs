@@ -3,12 +3,12 @@ using Microsoft.Extensions.Logging;
 
 namespace UpdateVersionManager.Services;
 
-public class SymbolicLinkService
+public class SymbolicLinkService : ISymbolicLinkService
 {
-    private readonly FileService _fileService;
+    private readonly IFileService _fileService;
     private readonly ILogger<SymbolicLinkService> _logger;
 
-    public SymbolicLinkService(FileService fileService, ILogger<SymbolicLinkService> logger)
+    public SymbolicLinkService(IFileService fileService, ILogger<SymbolicLinkService> logger)
     {
         _fileService = fileService;
         _logger = logger;
@@ -144,7 +144,7 @@ public class SymbolicLinkService
         }
     }
 
-    private bool IsSymbolicLink(string path)
+    public bool IsSymbolicLink(string path)
     {
         try
         {
@@ -154,6 +154,50 @@ public class SymbolicLinkService
         catch
         {
             return false;
+        }
+    }
+
+    public Task<bool> RemoveSymbolicLinkAsync(string linkPath)
+    {
+        try
+        {
+            if (Directory.Exists(linkPath))
+            {
+                if (IsSymbolicLink(linkPath))
+                {
+                    Directory.Delete(linkPath);
+                    _logger.LogInformation("符號連結已刪除: {LinkPath}", linkPath);
+                }
+                else
+                {
+                    Directory.Delete(linkPath, true);
+                    _logger.LogInformation("目錄已刪除: {LinkPath}", linkPath);
+                }
+            }
+            return Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "刪除符號連結失敗: {LinkPath}", linkPath);
+            return Task.FromResult(false);
+        }
+    }
+
+    public string? GetSymbolicLinkTarget(string linkPath)
+    {
+        try
+        {
+            if (IsSymbolicLink(linkPath))
+            {
+                var dirInfo = new DirectoryInfo(linkPath);
+                return dirInfo.ResolveLinkTarget(true)?.FullName;
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "無法取得符號連結目標: {LinkPath}", linkPath);
+            return null;
         }
     }
 
