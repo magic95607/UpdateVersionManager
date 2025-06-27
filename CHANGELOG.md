@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-06-27
+
+### 🎉 穩定版本發佈
+
+#### Added
+- **完整的 CI/CD 自動化流程**
+  - 跨平台自動建置：Windows (x64)、Linux (x64)、macOS (x64)
+  - 自動 GitHub Release 發佈
+  - SHA256 檔案完整性驗證
+  - 單一檔案發佈，無需額外依賴
+
+#### Fixed
+- **GitHub Actions 完整修正**
+  - 修正 Windows 環境中 PowerShell 多行命令語法錯誤
+  - 修正 macOS 環境中 `sha256sum` 命令不存在問題
+  - 修正 Windows 環境中 `find /v` 語法在 bash 中的相容性問題
+  - 添加必要的 GitHub Actions 權限設定
+  - 升級 action 版本確保穩定性
+
+#### Technical
+- **測試覆蓋率達成**：47 個測試，37 個成功，10 個跳過（檔案系統相關），0 個失敗
+- **CI 環境穩定性**：所有測試在 Linux/macOS/Windows 各平台穩定通過
+- **自動化發佈**：支援版本標籤自動觸發 GitHub Release
+
 ## [1.1.0] - 2025-06-27
 
 ### 🔧 測試與 CI 修正
