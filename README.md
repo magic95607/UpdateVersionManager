@@ -1,6 +1,6 @@
 # UpdateVersionManager
 
-基於 Google Drive 的版本管理工具，支援自動更新和版本切換功能。
+支援多來源的版本管理工具，可從 Google Drive、GitHub Release 和 FTP 下載版本檔案，具備自動更新和版本切換功能。
 
 ## 快速開始
 
@@ -21,11 +21,42 @@
 ## 功能特色
 
 - 🚀 自動檢查並更新到最新版本
-- 📦 從 Google Drive 下載和安裝版本
+- 📦 多來源下載支援（Google Drive、GitHub、FTP）
 - 🔄 版本間快速切換
 - 🔒 SHA256 檔案完整性驗證
 - 🔗 智慧型符號連結或目錄複製
 - ⚙️ 支援 JSON 設定檔配置
+- 🌐 自動偵測 URL 來源類型
+
+## 多來源下載支援
+
+本工具支援從多種來源下載版本檔案：
+
+### 支援的來源類型
+
+1. **Google Drive** - 適用於私人或小團隊使用
+   - URL 格式：`https://drive.google.com/file/d/{fileId}/view`
+   - 自動處理病毒掃描確認頁面
+   - 支援大檔案下載
+
+2. **GitHub Release** - 適用於開源專案
+   - URL 格式：`https://github.com/user/repo/releases/download/v1.0.0/file.zip`
+   - 或原始內容：`https://raw.githubusercontent.com/user/repo/main/file.txt`
+
+3. **FTP/FTPS** - 適用於企業內部部署
+   - URL 格式：`ftp://example.com/path/file.zip`
+   - 支援匿名和認證登入
+
+4. **HTTP/HTTPS** - 通用網路資源
+   - URL 格式：`https://example.com/file.zip`
+
+### URL 自動偵測
+
+工具會根據 URL 格式自動選擇合適的下載方式：
+- 包含 `drive.google.com` 或 `docs.google.com` → Google Drive 下載器
+- 包含 `github.com` 或 `githubusercontent.com` → GitHub 下載器  
+- 協議為 `ftp://` 或 `ftps://` → FTP 下載器
+- 其他 → 標準 HTTP 下載器
 
 ## 設定檔配置
 
@@ -47,12 +78,37 @@
 
 ### 設定項目說明
 
-- `GoogleDriveVersionListFileId`: Google Drive 上版本清單檔案的 ID
+- `GoogleDriveVersionListFileId`: Google Drive 上版本清單檔案的 ID（也可以是完整的下載 URL）
 - `LocalBaseDir`: 本地版本儲存目錄
 - `CurrentVersionFile`: 記錄當前版本的檔案名稱
 - `TempExtractPath`: 臨時解壓縮目錄
 - `ZipFilePath`: 下載的 ZIP 檔案路徑
 - `AppLinkName`: 當前版本的連結目錄名稱
+
+### 版本清單 URL 設定
+
+版本清單可以來自多種來源：
+
+```json
+{
+  "UpdateVersionManager": {
+    // Google Drive 檔案 ID
+    "VersionListUrl": "1HaA7rtbn_t7LWH67Pfr-tMV7cT7w7-E2",
+    
+    // 或完整的 Google Drive 下載 URL
+    "VersionListUrl": "https://drive.google.com/uc?export=download&id=1HaA7rtbn_t7LWH67Pfr-tMV7cT7w7-E2",
+    
+    // 或 GitHub 原始檔案 URL
+    "VersionListUrl": "https://raw.githubusercontent.com/user/repo/main/versions.json",
+    
+    // 或 FTP URL
+    "VersionListUrl": "ftp://ftp.example.com/path/versions.json",
+    
+    // 或任何 HTTP(S) URL
+    "VersionListUrl": "https://example.com/api/versions.json"
+  }
+}
+```
 
 ### 環境特定設定
 
@@ -66,6 +122,10 @@ uvm help
 
 # 自動更新到最新版本
 uvm update
+
+# 快速自檢並更新（適合腳本使用）
+uvm self-update
+uvm auto
 
 # 列出已安裝版本
 uvm list
@@ -94,6 +154,20 @@ uvm generate <version> <zip-file> <drive-file-id>
 # 顯示連結資訊
 uvm info
 ```
+
+### 自動更新功能
+
+UpdateVersionManager 支援自我更新功能：
+
+- `uvm update`：互動式更新，會顯示詳細進度
+- `uvm self-update` 或 `uvm auto`：靜默更新，適合在腳本中使用
+- `uvm quick-update`：快速更新模式
+
+所有更新命令都會：
+1. 檢查遠端是否有新版本
+2. 下載並驗證檔案完整性（SHA256）
+3. 自動替換當前執行檔
+4. 可選擇清理舊版本（使用 `--clean` 參數）
 
 ## 建置和執行
 
@@ -161,6 +235,23 @@ Program.cs
 2. 複製檔案 ID（URL 中的長字串）
 3. 更新 `appsettings.json` 中的 `GoogleDriveVersionListFileId`
 
+### 避免病毒掃描問題
+
+對於較大的檔案（通常 > 100MB），Google Drive 可能會顯示病毒掃描警告頁面。建議：
+
+1. **分割大檔案**：將大於 100MB 的檔案分割成較小的部分
+2. **使用壓縮**：確保 ZIP 檔案儘可能小
+3. **直接下載連結**：在 Google Drive 中右鍵選擇「取得連結」，確保設定為公開存取
+
+### 疑難排解
+
+如果遇到「Google Drive 病毒掃描頁面：無法找到確認下載連結」錯誤：
+
+1. 檢查檔案是否設定為公開存取
+2. 嘗試手動從瀏覽器下載該檔案，確認可以正常下載
+3. 考慮使用其他雲端儲存服務（如 GitHub Releases）
+4. 聯絡管理員檢查 Google Drive 檔案設定
+
 ## 版本清單格式
 
 版本清單 JSON 檔案格式：
@@ -179,6 +270,22 @@ Program.cs
   ]
 }
 ```
+
+## 已知問題與限制
+
+### Google Drive 相關
+- **病毒掃描警告**：大檔案（>100MB）可能觸發 Google Drive 的病毒掃描機制，導致下載失敗
+- **下載限制**：頻繁下載可能觸發 Google Drive 的速率限制
+- **檔案權限**：檔案必須設定為「知道連結的任何人都能檢視」
+
+### 平台相關
+- **符號連結**：Windows 環境下某些情況可能需要管理員權限
+- **檔案鎖定**：正在使用的應用程式檔案無法被替換，需要先關閉應用程式
+
+### 建議解決方案
+- 使用 GitHub Releases 替代 Google Drive 來託管版本檔案
+- 保持檔案大小在合理範圍內（建議 < 50MB）
+- 定期檢查雲端儲存的檔案可用性
 
 ## 授權
 

@@ -76,14 +76,14 @@ public class CommandHandlerTests : TestBase
             VerboseOutput = false
         };
         
-        var testGoogleDriveService = ServiceProvider.GetRequiredService<IGoogleDriveService>();
+        var testDownloadService = ServiceProvider.GetRequiredService<IUniversalDownloadService>();
         var testFileService = ServiceProvider.GetRequiredService<IFileService>();
         var testSymbolicLinkService = ServiceProvider.GetRequiredService<ISymbolicLinkService>();
         var testLogger = MockLogger<VersionManager>();
         var testSettingsOptions = Microsoft.Extensions.Options.Options.Create(testSettings);
         
         var testVersionManager = new VersionManager(
-            testGoogleDriveService, 
+            testDownloadService, 
             testFileService, 
             testSymbolicLinkService, 
             testSettingsOptions, 

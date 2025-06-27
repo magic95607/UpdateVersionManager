@@ -61,7 +61,7 @@ public class TestBase : IDisposable
         
         // 註冊服務介面和實作
         services.AddSingleton<IFileService, FileService>();
-        services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
+        services.AddSingleton<IUniversalDownloadService, UniversalDownloadService>();
         services.AddSingleton<ISymbolicLinkService, SymbolicLinkService>();
         services.AddSingleton<VersionManager>();
         services.AddSingleton<IOutputService, OutputService>();

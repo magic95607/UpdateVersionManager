@@ -30,7 +30,7 @@ UpdateVersionManager.Tests/
 - **FileService**: SHA256 calculation, ZIP extraction, JSON handling
 - **VersionManager**: Version installation, switching, cleanup
 - **SymbolicLinkService**: Symbolic link creation and management
-- **GoogleDriveService**: Remote version list retrieval, file downloads
+- **UniversalDownloadService**: Remote version list retrieval, file downloads from multiple sources (Google Drive, GitHub, FTP)
 
 ### 📋 Command Interface
 - **CLI Commands**: help, list, install, use, current, update, clean, hash, generate
@@ -124,7 +124,7 @@ public async Task MethodName_Condition_ExpectedResult()
 ### External Dependencies
 ```csharp
 // Mock external services
-var mockGoogleDriveService = new Mock<GoogleDriveService>();
+var mockDownloadService = new Mock<UniversalDownloadService>();
 var mockFileService = new Mock<FileService>();
 
 // Setup expected behavior

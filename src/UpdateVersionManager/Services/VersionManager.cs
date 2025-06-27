@@ -8,20 +8,20 @@ namespace UpdateVersionManager.Services;
 
 public class VersionManager
 {
-    private readonly IGoogleDriveService _googleDriveService;
+    private readonly IUniversalDownloadService _downloadService;
     private readonly IFileService _fileService;
     private readonly ISymbolicLinkService _symbolicLinkService;
     private readonly UpdateVersionManagerSettings _settings;
     private readonly ILogger<VersionManager> _logger;
 
     public VersionManager(
-        IGoogleDriveService googleDriveService,
+        IUniversalDownloadService downloadService,
         IFileService fileService,
         ISymbolicLinkService symbolicLinkService,
         IOptions<UpdateVersionManagerSettings> settings,
         ILogger<VersionManager> logger)
     {
-        _googleDriveService = googleDriveService;
+        _downloadService = downloadService;
         _fileService = fileService;
         _symbolicLinkService = symbolicLinkService;
         _settings = settings.Value;
@@ -50,7 +50,7 @@ public class VersionManager
     {
         try
         {
-            var json = await _googleDriveService.DownloadTextAsync(_settings.VersionListUrl);
+            var json = await _downloadService.DownloadTextAsync(_settings.GetVersionListUrl());
             var versionListData = JsonSerializer.Deserialize<JsonElement>(json);
 
             if (!versionListData.TryGetProperty("versions", out var versionsArray))
@@ -231,7 +231,7 @@ public class VersionManager
         Console.WriteLine($"[Updater] 正在下載版本 {version}...");
 
         // 下載檔案
-        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
+        await _downloadService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
 
         // 驗證 SHA256
         if (!string.IsNullOrEmpty(versionInfo.Sha256))
@@ -324,7 +324,7 @@ public class VersionManager
         // 下載檔案
         _logger.LogInformation("開始下載版本 {Version}", version);
         Console.WriteLine("下載中...");
-        await _googleDriveService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
+        await _downloadService.DownloadFileAsync(versionInfo.DownloadUrl, _settings.ZipFilePath);
         _logger.LogInformation("版本 {Version} 下載完成", version);
         
         // 檢查下載的檔案大小

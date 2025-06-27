@@ -80,7 +80,7 @@ try
     services.Configure<UpdateVersionManagerSettings>(
         configuration.GetSection("UpdateVersionManager"));
     services.AddSingleton<IFileService, FileService>();
-    services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
+    services.AddSingleton<IUniversalDownloadService, UniversalDownloadService>();
     services.AddSingleton<ISymbolicLinkService, SymbolicLinkService>();
     services.AddSingleton<VersionManager>();
     services.AddSingleton<IOutputService, OutputService>();
