@@ -9,41 +9,29 @@ namespace UpdateVersionManager.Tests;
 public class CommandHandlerTests : TestBase
 {
     private readonly VersionManager _versionManager;
-    private readonly OutputService _outputService;
+    private readonly IOutputService _outputService;
 
     public CommandHandlerTests()
     {
         _versionManager = ServiceProvider.GetRequiredService<VersionManager>();
-        _outputService = ServiceProvider.GetRequiredService<OutputService>();
+        _outputService = ServiceProvider.GetRequiredService<IOutputService>();
     }
 
-    private async Task<string> CaptureConsoleOutput(Func<Task> action)
+    private string GetCapturedOutput()
     {
-        var consoleOutput = new StringWriter();
-        var originalConsoleOut = Console.Out;
-        Console.SetOut(consoleOutput);
-        
-        try
-        {
-            await action();
-            return consoleOutput.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalConsoleOut);
-            consoleOutput.Dispose();
-        }
+        var output = string.Join(Environment.NewLine, _outputService.GetCapturedOutput());
+        _outputService.ClearCapturedOutput();
+        return output;
     }
 
     [Fact]
     public async Task HandleCommand_WithHelpCommand_ShouldShowHelp()
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("help", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("help", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("命令:");
     }
 
@@ -54,12 +42,11 @@ public class CommandHandlerTests : TestBase
         Directory.CreateDirectory(Path.GetDirectoryName(TestSettings.CurrentVersionFile)!);
         await File.WriteAllTextAsync(TestSettings.CurrentVersionFile, "1.0.0");
 
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("current", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("current", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("1.0.0");
     }
 
@@ -88,28 +75,28 @@ public class CommandHandlerTests : TestBase
             VerboseOutput = false
         };
         
-        var testFileService = ServiceProvider.GetRequiredService<IFileService>();
         var testGoogleDriveService = ServiceProvider.GetRequiredService<IGoogleDriveService>();
+        var testFileService = ServiceProvider.GetRequiredService<IFileService>();
         var testSymbolicLinkService = ServiceProvider.GetRequiredService<ISymbolicLinkService>();
         var testLogger = MockLogger<VersionManager>();
+        var testSettingsOptions = Microsoft.Extensions.Options.Options.Create(testSettings);
         
         var testVersionManager = new VersionManager(
-            testFileService, 
             testGoogleDriveService, 
+            testFileService, 
             testSymbolicLinkService, 
-            testSettings, 
+            testSettingsOptions, 
             testLogger.Object);
         
         // 確保狀態正確
         var currentVersion = testVersionManager.GetCurrentVersion();
         currentVersion.Should().BeNull();
 
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("current", Array.Empty<string>(), testVersionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("current", Array.Empty<string>(), testVersionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("尚未設定版本");
         
         // Cleanup
@@ -134,12 +121,11 @@ public class CommandHandlerTests : TestBase
             Directory.CreateDirectory(versionDir);
         }
 
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         foreach (var version in versions)
         {
             output.Should().Contain(version);
@@ -153,48 +139,44 @@ public class CommandHandlerTests : TestBase
         if (Directory.Exists(TestSettings.LocalBaseDir))
             Directory.Delete(TestSettings.LocalBaseDir, true);
 
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("(無已安裝版本)");
     }
 
     [Fact]
     public async Task HandleCommand_WithInstallCommand_WithoutVersion_ShouldShowUsage()
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("install", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("install", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm install <version>");
     }
 
     [Fact]
     public async Task HandleCommand_WithUseCommand_WithoutVersion_ShouldShowUsage()
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("use", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("use", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm use <version>");
     }
 
     [Fact]
     public async Task HandleCommand_WithCleanCommand_WithoutVersion_ShouldShowUsage()
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand("clean", Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand("clean", Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm clean <version>");
     }
 
@@ -204,12 +186,11 @@ public class CommandHandlerTests : TestBase
     [InlineData("HELP")]
     public async Task HandleCommand_WithHelpAliases_ShouldWork(string command)
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("uvm - 版本管理工具");
     }
 
@@ -223,12 +204,11 @@ public class CommandHandlerTests : TestBase
         Directory.CreateDirectory(TestSettings.LocalBaseDir);
         Directory.CreateDirectory(Path.Combine(TestSettings.LocalBaseDir, "1.0.0"));
 
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain("1.0.0");
     }
 
@@ -238,12 +218,11 @@ public class CommandHandlerTests : TestBase
     [InlineData("test")]
     public async Task HandleCommand_WithUnknownCommand_ShouldShowUnknownAndHelp(string unknownCommand)
     {
-        // Act & Assert
-        var output = await CaptureConsoleOutput(async () =>
-        {
-            await CommandHandler.HandleCommand(unknownCommand, Array.Empty<string>(), _versionManager, _outputService);
-        });
+        // Act
+        await CommandHandler.HandleCommand(unknownCommand, Array.Empty<string>(), _versionManager, _outputService);
         
+        // Assert
+        var output = GetCapturedOutput();
         output.Should().Contain($"未知命令: {unknownCommand}");
         output.Should().Contain("uvm - 版本管理工具");
     }

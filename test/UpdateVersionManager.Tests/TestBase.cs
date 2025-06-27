@@ -64,7 +64,7 @@ public class TestBase : IDisposable
         services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
         services.AddSingleton<ISymbolicLinkService, SymbolicLinkService>();
         services.AddSingleton<VersionManager>();
-        services.AddSingleton<OutputService>();
+        services.AddSingleton<IOutputService, OutputService>();
     }
 
     protected T GetRequiredService<T>() where T : notnull

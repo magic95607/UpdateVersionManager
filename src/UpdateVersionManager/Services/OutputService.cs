@@ -3,10 +3,11 @@ using UpdateVersionManager.Models;
 
 namespace UpdateVersionManager.Services;
 
-public class OutputService
+public class OutputService : IOutputService
 {
     private readonly ILogger<OutputService> _logger;
     private readonly UpdateVersionManagerSettings _settings;
+    private readonly List<string> _capturedOutput = new();
 
     public OutputService(ILogger<OutputService> logger, UpdateVersionManagerSettings settings)
     {
@@ -14,12 +15,16 @@ public class OutputService
         _settings = settings;
     }
 
+    public IReadOnlyList<string> GetCapturedOutput() => _capturedOutput.AsReadOnly();
+    
+    public void ClearCapturedOutput() => _capturedOutput.Clear();
+
     /// <summary>
     /// 輸出用戶訊息，永遠顯示在 Console，也記錄到 Log
     /// </summary>
     public void WriteInfo(string message)
     {
-        Console.WriteLine(message);
+        WriteToConsoleAndCapture(message);
         _logger.LogInformation(message);
     }
 
@@ -28,7 +33,7 @@ public class OutputService
     /// </summary>
     public void WriteError(string message)
     {
-        Console.WriteLine(message);
+        WriteToConsoleAndCapture(message);
         _logger.LogError(message);
     }
 
@@ -37,7 +42,8 @@ public class OutputService
     /// </summary>
     public void WriteError(string message, Exception ex)
     {
-        Console.WriteLine($"{message}: {ex.Message}");
+        var fullMessage = $"{message}: {ex.Message}";
+        WriteToConsoleAndCapture(fullMessage);
         _logger.LogError(ex, message);
     }
 
@@ -46,7 +52,7 @@ public class OutputService
     /// </summary>
     public void WriteWarning(string message)
     {
-        Console.WriteLine(message);
+        WriteToConsoleAndCapture(message);
         _logger.LogWarning(message);
     }
 
@@ -57,7 +63,7 @@ public class OutputService
     {
         if (_settings.VerboseOutput)
         {
-            Console.WriteLine($"[VERBOSE] {message}");
+            WriteToConsoleAndCapture($"[VERBOSE] {message}");
         }
         _logger.LogInformation(message);
     }
@@ -69,7 +75,7 @@ public class OutputService
     {
         if (_settings.VerboseOutput)
         {
-            Console.WriteLine($"[DEBUG] {message}");
+            WriteToConsoleAndCapture($"[DEBUG] {message}");
         }
         _logger.LogDebug(message);
     }
@@ -93,8 +99,14 @@ public class OutputService
     /// <summary>
     /// 只輸出到 Console，不記錄到 Log（用於純用戶介面顯示）
     /// </summary>
-    public virtual void WriteConsoleOnly(string message)
+    public void WriteConsoleOnly(string message)
+    {
+        WriteToConsoleAndCapture(message);
+    }
+
+    private void WriteToConsoleAndCapture(string message)
     {
         Console.WriteLine(message);
+        _capturedOutput.Add(message);
     }
 }

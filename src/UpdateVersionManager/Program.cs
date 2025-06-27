@@ -32,7 +32,7 @@ try
     services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
     services.AddSingleton<ISymbolicLinkService, SymbolicLinkService>();
     services.AddSingleton<VersionManager>();
-    services.AddSingleton<OutputService>();
+    services.AddSingleton<IOutputService, OutputService>();
     services.AddSingleton(provider => 
         provider.GetRequiredService<IOptions<UpdateVersionManagerSettings>>().Value);
     services.AddLogging(builder => builder.AddSerilog());
@@ -42,7 +42,7 @@ try
     // 解析命令行參數
     var commandLineArgs = Environment.GetCommandLineArgs();
     var versionManager = serviceProvider.GetRequiredService<VersionManager>();
-    var output = serviceProvider.GetRequiredService<OutputService>();
+    var output = serviceProvider.GetRequiredService<IOutputService>();
 
     if (commandLineArgs.Length > 1)
     {

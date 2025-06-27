@@ -4,7 +4,7 @@ namespace UpdateVersionManager;
 
 public static class CommandHandler
 {
-    public static async Task HandleCommand(string command, string[] parameters, Services.VersionManager versionManager, OutputService output)
+    public static async Task HandleCommand(string command, string[] parameters, Services.VersionManager versionManager, IOutputService output)
     {
         output.WriteDebug($"處理命令: {command} {string.Join(" ", parameters)}");
         
@@ -73,7 +73,7 @@ public static class CommandHandler
         }
     }
 
-    private static void ShowHelp(OutputService output)
+    private static void ShowHelp(IOutputService output)
     {
         output.WriteConsoleOnly("uvm - 版本管理工具 (Google Drive 版本)");
         output.WriteConsoleOnly("");
@@ -91,7 +91,7 @@ public static class CommandHandler
         output.WriteConsoleOnly("  help                                顯示此幫助訊息");
     }
 
-    private static void ListVersions(Services.VersionManager versionManager, OutputService output)
+    private static void ListVersions(Services.VersionManager versionManager, IOutputService output)
     {
         output.WriteConsoleOnly("已安裝的版本:");
         var versions = versionManager.GetInstalledVersions();
@@ -110,7 +110,7 @@ public static class CommandHandler
         }
     }
 
-    private static async Task ListRemoteVersions(VersionManager versionManager, OutputService output)
+    private static async Task ListRemoteVersions(VersionManager versionManager, IOutputService output)
     {
         try
         {
@@ -146,7 +146,7 @@ public static class CommandHandler
         }
     }
 
-    private static void ShowCurrentVersion(VersionManager versionManager, OutputService output)
+    private static void ShowCurrentVersion(VersionManager versionManager, IOutputService output)
     {
         var current = versionManager.GetCurrentVersion();
         if (current != null)
@@ -155,7 +155,7 @@ public static class CommandHandler
             output.WriteConsoleOnly("尚未設定版本");
     }
 
-    private static async Task CalculateFileHash(string filePath, OutputService output)
+    private static async Task CalculateFileHash(string filePath, IOutputService output)
     {
         if (!File.Exists(filePath))
         {
@@ -181,7 +181,7 @@ public static class CommandHandler
         }
     }
 
-    private static void ShowLinkInfo(VersionManager versionManager, OutputService output)
+    private static void ShowLinkInfo(VersionManager versionManager, IOutputService output)
     {
         output.WriteConsoleOnly("=== 當前狀態 ===");
 
@@ -222,7 +222,7 @@ public static class CommandHandler
         }
     }
 
-    private static async Task GenerateVersionInfo(string version, string zipFilePath, string googleDriveFileId, OutputService output)
+    private static async Task GenerateVersionInfo(string version, string zipFilePath, string googleDriveFileId, IOutputService output)
     {
         try
         {

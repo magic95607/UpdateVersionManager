@@ -1,31 +1,26 @@
 using UpdateVersionManager.Services;
 using FluentAssertions;
 using System.IO;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace UpdateVersionManager.Tests;
 
 public class CommandHandlerTestsNew : TestBase
 {
     private readonly VersionManager _versionManager;
-    private readonly OutputService _outputService;
-    private readonly StringWriter _consoleOutput;
-    private readonly TextWriter _originalConsoleOut;
+    private readonly IOutputService _outputService;
 
     public CommandHandlerTestsNew()
     {
         _versionManager = ServiceProvider.GetRequiredService<VersionManager>();
-        _outputService = ServiceProvider.GetRequiredService<OutputService>();
-        
-        _consoleOutput = new StringWriter();
-        _originalConsoleOut = Console.Out;
-        Console.SetOut(_consoleOutput);
+        _outputService = ServiceProvider.GetRequiredService<IOutputService>();
     }
 
-    public override void Dispose()
+    private string GetCapturedOutput()
     {
-        Console.SetOut(_originalConsoleOut);
-        _consoleOutput.Dispose();
-        base.Dispose();
+        var output = string.Join(Environment.NewLine, _outputService.GetCapturedOutput());
+        _outputService.ClearCapturedOutput();
+        return output;
     }
 
     [Fact]
@@ -35,9 +30,9 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("help", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("uvm - 版本管理工具");
-        output.Should().Contain("指令:");
+        output.Should().Contain("命令:");
     }
 
     [Fact]
@@ -51,7 +46,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("current", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("1.0.0");
     }
 
@@ -66,7 +61,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("current", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("尚未設定版本");
     }
 
@@ -87,7 +82,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         foreach (var version in versions)
         {
             output.Should().Contain(version);
@@ -105,7 +100,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("list", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("尚未安裝任何版本");
     }
 
@@ -116,7 +111,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("install", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm install <version>");
     }
 
@@ -127,7 +122,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("use", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm use <version>");
     }
 
@@ -138,7 +133,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand("clean", Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("使用方式: uvm clean <version>");
     }
 
@@ -152,7 +147,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("uvm - 版本管理工具");
     }
 
@@ -170,7 +165,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand(command, Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain("1.0.0");
     }
 
@@ -184,7 +179,7 @@ public class CommandHandlerTestsNew : TestBase
         await CommandHandler.HandleCommand(unknownCommand, Array.Empty<string>(), _versionManager, _outputService);
 
         // Assert
-        var output = _consoleOutput.ToString();
+        var output = GetCapturedOutput();
         output.Should().Contain($"未知命令: {unknownCommand}");
     }
 }
