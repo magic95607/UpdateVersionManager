@@ -36,6 +36,11 @@ public static class CommandHandler
             case "update":
                 await versionManager.AutoUpdateAsync();
                 break;
+            case "self-update":
+            case "auto":
+            case "quick-update":
+                await QuickSelfUpdate(versionManager, output, parameters);
+                break;
             case "clean":
             case "uninstall":
                 if (parameters.Length > 0)
@@ -73,12 +78,72 @@ public static class CommandHandler
         }
     }
 
+    /// <summary>
+    /// 快速自檢並更新 - 專為主程序設計的快速更新方法
+    /// </summary>
+    private static async Task QuickSelfUpdate(VersionManager versionManager, IOutputService output, string[] parameters)
+    {
+        try
+        {
+            output.WriteConsoleOnly("🔍 檢查更新中...");
+            
+            // 取得當前版本和最新版本
+            var currentVersion = versionManager.GetCurrentVersion();
+            var remoteVersions = await versionManager.GetRemoteVersionsAsync();
+            var latestVersion = remoteVersions.OrderByDescending(v => v.Version).FirstOrDefault();
+            
+            if (latestVersion == null)
+            {
+                output.WriteConsoleOnly("❌ 無法取得遠端版本資訊");
+                return;
+            }
+            
+            // 檢查是否需要更新
+            if (currentVersion == latestVersion.Version)
+            {
+                output.WriteConsoleOnly($"✅ 已是最新版本 {currentVersion}");
+                return;
+            }
+            
+            if (currentVersion == null)
+            {
+                output.WriteConsoleOnly($"📦 首次安裝版本 {latestVersion.Version}");
+            }
+            else
+            {
+                output.WriteConsoleOnly($"🆙 發現新版本: {currentVersion} → {latestVersion.Version}");
+            }
+            
+            // 執行更新
+            output.WriteConsoleOnly("⬇️ 下載並安裝中...");
+            await versionManager.InstallVersionAsync(latestVersion.Version);
+            
+            output.WriteConsoleOnly("🔄 切換版本中...");
+            await versionManager.UseVersionAsync(latestVersion.Version);
+            
+            output.WriteConsoleOnly($"✅ 更新完成！當前版本: {latestVersion.Version}");
+            
+            // 清理舊版本 (可選)
+            if (currentVersion != null && parameters.Contains("--clean"))
+            {
+                output.WriteConsoleOnly("🧹 清理舊版本中...");
+                await versionManager.CleanVersionAsync(currentVersion);
+                output.WriteConsoleOnly("✅ 舊版本已清理");
+            }
+        }
+        catch (Exception ex)
+        {
+            output.WriteError("自動更新失敗", ex);
+        }
+    }
+
     private static void ShowHelp(IOutputService output)
     {
         output.WriteConsoleOnly("uvm - 版本管理工具 (Google Drive 版本)");
         output.WriteConsoleOnly("");
         output.WriteConsoleOnly("命令:");
         output.WriteConsoleOnly("  update                              自動檢查並更新到最新版本");
+        output.WriteConsoleOnly("  self-update, auto                   快速自檢並更新 (主程序專用)");
         output.WriteConsoleOnly("  install <version>                   下載並安裝指定版本");
         output.WriteConsoleOnly("  list, ls                            列出所有已安裝的版本");
         output.WriteConsoleOnly("  list-remote, ls-remote              列出所有可用的遠端版本");
@@ -89,6 +154,9 @@ public static class CommandHandler
         output.WriteConsoleOnly("  generate <版本> <zip檔> <檔案ID>     產生版本資訊");
         output.WriteConsoleOnly("  check, info                     顯示當前連結資訊");
         output.WriteConsoleOnly("  help                                顯示此幫助訊息");
+        output.WriteConsoleOnly("");
+        output.WriteConsoleOnly("選項:");
+        output.WriteConsoleOnly("  --clean                             更新後清理舊版本");
     }
 
     private static void ListVersions(Services.VersionManager versionManager, IOutputService output)
