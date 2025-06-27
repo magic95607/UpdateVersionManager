@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Serilog;
 using System.Text;
+using System.Reflection;
 
 // 設定 Console 編碼為 UTF-8
 Console.OutputEncoding = Encoding.UTF8;
@@ -13,13 +14,57 @@ Console.InputEncoding = Encoding.UTF8;
 
 // 建立設定
 var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
-var basePath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? Directory.GetCurrentDirectory();
-var configuration = new ConfigurationBuilder()
-    .SetBasePath(basePath)
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables()
-    .Build();
+var configuration = BuildConfiguration(environment);
+
+// 輔助方法：建立設定
+static IConfiguration BuildConfiguration(string environment)
+{
+    var builder = new ConfigurationBuilder();
+    
+    // 嘗試從檔案讀取（開發時）
+    var basePath = AppContext.BaseDirectory;
+    var mainConfigPath = Path.Combine(basePath, "appsettings.json");
+    var envConfigPath = Path.Combine(basePath, $"appsettings.{environment}.json");
+    
+    if (File.Exists(mainConfigPath))
+    {
+        builder.AddJsonFile(mainConfigPath, optional: false, reloadOnChange: true);
+    }
+    else
+    {
+        // 從嵌入資源讀取（發佈後）
+        var mainStream = GetEmbeddedResourceStream("appsettings.json");
+        if (mainStream != null)
+        {
+            builder.AddJsonStream(mainStream);
+        }
+    }
+    
+    if (File.Exists(envConfigPath))
+    {
+        builder.AddJsonFile(envConfigPath, optional: true, reloadOnChange: true);
+    }
+    else
+    {
+        // 從嵌入資源讀取環境特定設定
+        var envStream = GetEmbeddedResourceStream($"appsettings.{environment}.json");
+        if (envStream != null)
+        {
+            builder.AddJsonStream(envStream);
+        }
+    }
+    
+    builder.AddEnvironmentVariables();
+    return builder.Build();
+}
+
+// 輔助方法：取得嵌入資源流
+static Stream? GetEmbeddedResourceStream(string resourceName)
+{
+    var assembly = Assembly.GetExecutingAssembly();
+    var fullResourceName = $"UpdateVersionManager.{resourceName}";
+    return assembly.GetManifestResourceStream(fullResourceName);
+}
 
 // 設定 Serilog
 Log.Logger = new LoggerConfiguration()

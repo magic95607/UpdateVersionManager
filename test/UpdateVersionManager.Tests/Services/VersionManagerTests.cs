@@ -244,10 +244,11 @@ public class VersionManagerTests : TestBase
         const string version = "1.0.0";
         var versionPath = Path.Combine(TestSettings.LocalBaseDir, version);
         
-        // 確保父目錄存在
+        // 清理並重新建立目錄結構
+        if (Directory.Exists(TestSettings.LocalBaseDir))
+            Directory.Delete(TestSettings.LocalBaseDir, true);
+            
         Directory.CreateDirectory(TestSettings.LocalBaseDir);
-        
-        // 建立版本目錄
         Directory.CreateDirectory(versionPath);
         File.WriteAllText(Path.Combine(versionPath, "test.txt"), "test content");
         
@@ -267,7 +268,8 @@ public class VersionManagerTests : TestBase
         // Arrange
         const string version = "99.99.99";
         
-        // 確保版本目錄不存在
+        // 確保基礎目錄存在，但版本目錄不存在
+        Directory.CreateDirectory(TestSettings.LocalBaseDir);
         var versionPath = Path.Combine(TestSettings.LocalBaseDir, version);
         if (Directory.Exists(versionPath))
             Directory.Delete(versionPath, true);

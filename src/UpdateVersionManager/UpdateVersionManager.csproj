@@ -6,6 +6,41 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>uvm</AssemblyName>
+    
+    <!-- 單一檔案發佈設定 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    
+    <!-- 完全禁用 IL Linker 以避免 JSON 序列化問題 -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <IlcDisableReflection>false</IlcDisableReflection>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <_RequiresILLinkPack>false</_RequiresILLinkPack>
+    
+    <!-- 版本資訊 -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>UpdateVersionManager</Product>
+    <Description>版本管理工具 - 單一檔案版本</Description>
+    <Copyright>Copyright © 2025</Copyright>
+  </PropertyGroup>
+
+  <!-- 不同平台的特定設定 -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <DefineConstants>WINDOWS</DefineConstants>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+    <DefineConstants>LINUX</DefineConstants>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
+    <DefineConstants>MACOS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +58,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 將設定檔案嵌入到執行檔中 -->
+    <EmbeddedResource Include="appsettings.json" />
+    <EmbeddedResource Include="appsettings.Development.json" />
+    
+    <!-- 同時也保留複製到輸出目錄（供開發時使用） -->
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
