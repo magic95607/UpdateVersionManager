@@ -116,6 +116,8 @@ jobs:
         
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           certutil -hashfile "$FILE" SHA256 | find /v ":" | find /v "CertUtil" > "$FILE.sha256"
+        elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          shasum -a 256 "$FILE" > "$FILE.sha256"
         else
           sha256sum "$FILE" > "$FILE.sha256"
         fi
