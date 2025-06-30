@@ -250,7 +250,7 @@ public class VersionManagerTests : TestBase
             _mockLogger.Object);
 
         _mockDownloadService
-            .Setup(x => x.DownloadTextAsync(testSettings.GetVersionListUrl()))
+            .Setup(x => x.DownloadTextAsync(testSettings.GetVersionListSource()))
             .ReturnsAsync(jsonResponse);
 
         _mockDownloadService
@@ -277,7 +277,7 @@ public class VersionManagerTests : TestBase
         }
 
         // Assert - 驗證關鍵方法被呼叫
-        _mockDownloadService.Verify(x => x.DownloadTextAsync(testSettings.GetVersionListUrl()), Times.Once);
+        _mockDownloadService.Verify(x => x.DownloadTextAsync(testSettings.GetVersionListSource()), Times.Once);
         _mockDownloadService.Verify(x => x.DownloadFileAsync("test-download-url", uniqueZipPath), Times.Once);
         _mockFileService.Verify(x => x.VerifyFileHashAsync(uniqueZipPath, "test-hash"), Times.Once);
 

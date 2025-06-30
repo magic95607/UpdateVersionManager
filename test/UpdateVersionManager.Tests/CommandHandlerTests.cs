@@ -192,7 +192,7 @@ public class CommandHandlerTests : TestBase
         
         // Assert
         var output = GetCapturedOutput();
-        output.Should().Contain("uvm - 版本管理工具");
+        output.Should().Contain("uvm - 通用版本管理工具");
     }
 
     [Theory(Skip = "Directory-based tests are unstable in parallel execution and CI environments")]
@@ -225,6 +225,6 @@ public class CommandHandlerTests : TestBase
         // Assert
         var output = GetCapturedOutput();
         output.Should().Contain($"未知命令: {unknownCommand}");
-        output.Should().Contain("uvm - 版本管理工具");
+        output.Should().Contain("uvm - 通用版本管理工具");
     }
 }
