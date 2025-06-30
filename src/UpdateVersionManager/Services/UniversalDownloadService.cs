@@ -430,14 +430,25 @@ public class UniversalDownloadService : IUniversalDownloadService
         var host = uri.Host;
         var port = uri.Port != -1 ? uri.Port : 22;
         
-        // 從 URL 中解析用戶名和密碼
-        var username = !string.IsNullOrEmpty(uri.UserInfo) 
-            ? uri.UserInfo.Split(':')[0] 
-            : Environment.UserName;
+        // 從 URL 中解析用戶名和密碼，並進行 URL 解碼
+        string username;
+        string password;
+        
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            var userInfoParts = uri.UserInfo.Split(':');
+            username = Uri.UnescapeDataString(userInfoParts[0]);
+            password = userInfoParts.Length > 1 ? Uri.UnescapeDataString(userInfoParts[1]) : string.Empty;
             
-        var password = !string.IsNullOrEmpty(uri.UserInfo) && uri.UserInfo.Contains(':')
-            ? uri.UserInfo.Split(':')[1]
-            : string.Empty;
+            _logger.LogDebug("SFTP 連線資訊 - 主機: {Host}:{Port}, 用戶: {Username}", host, port, username);
+            // 注意：不要記錄密碼到日誌中
+        }
+        else
+        {
+            username = Environment.UserName;
+            password = string.Empty;
+            _logger.LogDebug("使用預設用戶名: {Username}", username);
+        }
         
         // 如果沒有提供密碼，嘗試使用私鑰認證
         if (string.IsNullOrEmpty(password))
@@ -455,7 +466,7 @@ public class UniversalDownloadService : IUniversalDownloadService
             }
         }
         
-        _logger.LogDebug("使用密碼認證連接 SFTP: {Host}:{Port}", host, port);
+        _logger.LogDebug("使用密碼認證連接 SFTP: {Host}:{Port}, 用戶: {Username}", host, port, username);
         return new ConnectionInfo(host, port, username, new PasswordAuthenticationMethod(username, password));
     }
 
