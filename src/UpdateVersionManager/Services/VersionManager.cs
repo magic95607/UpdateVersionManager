@@ -337,7 +337,37 @@ public class VersionManager
 
         _logger.LogInformation("開始解壓縮到臨時目錄: {TempPath}", _settings.TempExtractPath);
         Console.WriteLine("[Updater] 解壓縮中...");
-        ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
+        
+        // 使用支援 UTF-8 編碼的解壓方式來處理中文檔案名稱
+        using (var archive = ZipFile.OpenRead(_settings.ZipFilePath))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                // 確保目標目錄存在
+                var destinationPath = Path.Combine(_settings.TempExtractPath, entry.FullName);
+                var destinationDir = Path.GetDirectoryName(destinationPath);
+                
+                if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                }
+                
+                // 如果是檔案則解壓縮
+                if (!string.IsNullOrEmpty(entry.Name))
+                {
+                    try
+                    {
+                        entry.ExtractToFile(destinationPath, overwrite: true);
+                        _logger.LogDebug("解壓縮檔案: {FileName}", entry.FullName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "解壓縮檔案失敗: {FileName}", entry.FullName);
+                        throw new Exception($"解壓縮檔案失敗: {entry.FullName} - {ex.Message}");
+                    }
+                }
+            }
+        }
 
         // 移動到版本目錄
         Directory.CreateDirectory(_settings.LocalBaseDir);
@@ -448,7 +478,37 @@ public class VersionManager
 
         _logger.LogInformation("開始解壓縮到臨時目錄: {TempPath}", _settings.TempExtractPath);
         Console.WriteLine("解壓縮中...");
-        ZipFile.ExtractToDirectory(_settings.ZipFilePath, _settings.TempExtractPath);
+        
+        // 使用支援 UTF-8 編碼的解壓方式來處理中文檔案名稱
+        using (var archive = ZipFile.OpenRead(_settings.ZipFilePath))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                // 確保目標目錄存在
+                var destinationPath = Path.Combine(_settings.TempExtractPath, entry.FullName);
+                var destinationDir = Path.GetDirectoryName(destinationPath);
+                
+                if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                }
+                
+                // 如果是檔案則解壓縮
+                if (!string.IsNullOrEmpty(entry.Name))
+                {
+                    try
+                    {
+                        entry.ExtractToFile(destinationPath, overwrite: true);
+                        _logger.LogDebug("解壓縮檔案: {FileName}", entry.FullName);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "解壓縮檔案失敗: {FileName}", entry.FullName);
+                        throw new Exception($"解壓縮檔案失敗: {entry.FullName} - {ex.Message}");
+                    }
+                }
+            }
+        }
 
         // 移動到版本目錄
         Directory.CreateDirectory(_settings.LocalBaseDir);
