@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Renci.SshNet;
 
 namespace UpdateVersionManager.Services;
 
@@ -31,6 +32,7 @@ public class UniversalDownloadService : IUniversalDownloadService
                 UrlSource.GoogleDrive => await DownloadGoogleDriveTextAsync(url),
                 UrlSource.GitHub => await DownloadGitHubTextAsync(url),
                 UrlSource.Ftp => await DownloadFtpTextAsync(url),
+                UrlSource.Sftp => await DownloadSftpTextAsync(url),
                 _ => await DownloadHttpTextAsync(url)
             };
         }
@@ -61,6 +63,9 @@ public class UniversalDownloadService : IUniversalDownloadService
                 case UrlSource.Ftp:
                     await DownloadFtpFileAsync(url, filePath);
                     break;
+                case UrlSource.Sftp:
+                    await DownloadSftpFileAsync(url, filePath);
+                    break;
                 default:
                     await DownloadHttpFileAsync(url, filePath);
                     break;
@@ -88,6 +93,9 @@ public class UniversalDownloadService : IUniversalDownloadService
         if (uri.Scheme.Equals("ftp", StringComparison.OrdinalIgnoreCase) || 
             uri.Scheme.Equals("ftps", StringComparison.OrdinalIgnoreCase))
             return UrlSource.Ftp;
+            
+        if (uri.Scheme.Equals("sftp", StringComparison.OrdinalIgnoreCase))
+            return UrlSource.Sftp;
             
         return UrlSource.Http;
     }
@@ -334,6 +342,125 @@ public class UniversalDownloadService : IUniversalDownloadService
 
     #endregion
 
+    #region SFTP 下載實作
+
+    private async Task<string> DownloadSftpTextAsync(string url)
+    {
+        _logger.LogDebug("使用 SFTP 下載文本，URL: {Url}", url);
+        
+        try
+        {
+            var uri = new Uri(url);
+            var connectionInfo = CreateSftpConnectionInfo(uri);
+            
+            using var client = new SftpClient(connectionInfo);
+            await Task.Run(() => client.Connect());
+            
+            try
+            {
+                var remotePath = uri.AbsolutePath;
+                using var stream = new MemoryStream();
+                
+                await Task.Run(() => client.DownloadFile(remotePath, stream));
+                stream.Position = 0;
+                
+                using var reader = new StreamReader(stream);
+                var content = await reader.ReadToEndAsync();
+                
+                _logger.LogInformation("SFTP 文本下載完成，大小: {Size} 字符", content.Length);
+                return content;
+            }
+            finally
+            {
+                if (client.IsConnected)
+                    client.Disconnect();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SFTP 文本下載失敗");
+            throw new Exception($"SFTP 下載失敗: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadSftpFileAsync(string url, string filePath)
+    {
+        _logger.LogDebug("使用 SFTP 下載檔案，URL: {Url}，目標路徑: {FilePath}", url, filePath);
+        
+        try
+        {
+            var uri = new Uri(url);
+            var connectionInfo = CreateSftpConnectionInfo(uri);
+            
+            using var client = new SftpClient(connectionInfo);
+            await Task.Run(() => client.Connect());
+            
+            try
+            {
+                var remotePath = uri.AbsolutePath;
+                
+                // 確保目標目錄存在
+                var directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                
+                using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+                await Task.Run(() => client.DownloadFile(remotePath, fileStream));
+                
+                var fileInfo = new FileInfo(filePath);
+                _logger.LogInformation("SFTP 檔案下載完成，大小: {Size} bytes", fileInfo.Length);
+            }
+            finally
+            {
+                if (client.IsConnected)
+                    client.Disconnect();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SFTP 檔案下載失敗");
+            throw new Exception($"SFTP 下載失敗: {ex.Message}");
+        }
+    }
+
+    private ConnectionInfo CreateSftpConnectionInfo(Uri uri)
+    {
+        var host = uri.Host;
+        var port = uri.Port != -1 ? uri.Port : 22;
+        
+        // 從 URL 中解析用戶名和密碼
+        var username = !string.IsNullOrEmpty(uri.UserInfo) 
+            ? uri.UserInfo.Split(':')[0] 
+            : Environment.UserName;
+            
+        var password = !string.IsNullOrEmpty(uri.UserInfo) && uri.UserInfo.Contains(':')
+            ? uri.UserInfo.Split(':')[1]
+            : string.Empty;
+        
+        // 如果沒有提供密碼，嘗試使用私鑰認證
+        if (string.IsNullOrEmpty(password))
+        {
+            var keyFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "id_rsa");
+            if (File.Exists(keyFilePath))
+            {
+                _logger.LogDebug("使用私鑰認證: {KeyPath}", keyFilePath);
+                var keyFile = new PrivateKeyFile(keyFilePath);
+                return new ConnectionInfo(host, port, username, new PrivateKeyAuthenticationMethod(username, keyFile));
+            }
+            else
+            {
+                _logger.LogWarning("未找到私鑰檔案且未提供密碼，將使用空密碼");
+            }
+        }
+        
+        _logger.LogDebug("使用密碼認證連接 SFTP: {Host}:{Port}", host, port);
+        return new ConnectionInfo(host, port, username, new PasswordAuthenticationMethod(username, password));
+    }
+
+    #endregion
+
     #region HTTP 下載實作
 
     private async Task<string> DownloadHttpTextAsync(string url)
@@ -421,5 +548,6 @@ internal enum UrlSource
     GoogleDrive,
     GitHub,
     Ftp,
+    Sftp,
     Http
 }

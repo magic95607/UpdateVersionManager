@@ -141,7 +141,7 @@ public static class CommandHandler
 
     private static void ShowHelp(IOutputService output)
     {
-        output.WriteConsoleOnly("uvm - 版本管理工具 (Google Drive 版本)");
+        output.WriteConsoleOnly("uvm - 通用版本管理工具 (支援多來源下載)");
         output.WriteConsoleOnly("");
         output.WriteConsoleOnly("命令:");
         output.WriteConsoleOnly("  update                              自動檢查並更新到最新版本");
@@ -154,11 +154,35 @@ public static class CommandHandler
         output.WriteConsoleOnly("  clean <version>                     刪除指定版本");
         output.WriteConsoleOnly("  hash <檔案路徑>                     計算檔案的 SHA256");
         output.WriteConsoleOnly("  generate <版本> <zip檔> <檔案ID>     產生版本資訊");
-        output.WriteConsoleOnly("  check, info                     顯示當前連結資訊");
+        output.WriteConsoleOnly("  check, info                         顯示當前連結資訊");
         output.WriteConsoleOnly("  help                                顯示此幫助訊息");
         output.WriteConsoleOnly("");
         output.WriteConsoleOnly("選項:");
+        output.WriteConsoleOnly("  --config <path>, -c <path>          指定設定檔路徑");
         output.WriteConsoleOnly("  --clean                             更新後清理舊版本");
+        output.WriteConsoleOnly("");
+        output.WriteConsoleOnly("設定檔搜尋順序:");
+        output.WriteConsoleOnly("  1. 命令行參數指定的路徑 (--config)");
+        output.WriteConsoleOnly("  2. 環境變數 UVM_CONFIG 指定的路徑");
+        output.WriteConsoleOnly("  3. 當前目錄下的 uvm.json");
+        output.WriteConsoleOnly("  4. 當前目錄下的 appsettings.json");
+        output.WriteConsoleOnly("  5. 當前目錄下的 versions.json");
+        output.WriteConsoleOnly("  6. 預設的 appsettings.json");
+        output.WriteConsoleOnly("");
+        output.WriteConsoleOnly("支援的下載來源:");
+        output.WriteConsoleOnly("  • Google Drive (https://drive.google.com/...)");
+        output.WriteConsoleOnly("  • GitHub (https://github.com/...)");
+        output.WriteConsoleOnly("  • HTTP/HTTPS (https://...)");
+        output.WriteConsoleOnly("  • FTP (ftp://...)");
+        output.WriteConsoleOnly("  • SFTP (sftp://...)");
+        output.WriteConsoleOnly("");
+        output.WriteConsoleOnly("環境變數設定:");
+        output.WriteConsoleOnly("  UVM_CONFIG                          指定設定檔路徑");
+        output.WriteConsoleOnly("");
+        output.WriteConsoleOnly("範例:");
+        output.WriteConsoleOnly("  uvm --config ./myapp.json install latest");
+        output.WriteConsoleOnly("  UVM_CONFIG=./myapp.json uvm list-remote");
+        output.WriteConsoleOnly("  uvm install 1.2.0                  使用當前目錄的設定檔");
     }
 
     private static void ListVersions(Services.VersionManager versionManager, IOutputService output)

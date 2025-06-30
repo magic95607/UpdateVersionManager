@@ -13,19 +13,22 @@ public class VersionManager
     private readonly ISymbolicLinkService _symbolicLinkService;
     private readonly UpdateVersionManagerSettings _settings;
     private readonly ILogger<VersionManager> _logger;
+    private readonly ConfigPathProvider? _configPathProvider;
 
     public VersionManager(
         IUniversalDownloadService downloadService,
         IFileService fileService,
         ISymbolicLinkService symbolicLinkService,
         IOptions<UpdateVersionManagerSettings> settings,
-        ILogger<VersionManager> logger)
+        ILogger<VersionManager> logger,
+        ConfigPathProvider? configPathProvider = null)
     {
         _downloadService = downloadService;
         _fileService = fileService;
         _symbolicLinkService = symbolicLinkService;
         _settings = settings.Value;
         _logger = logger;
+        _configPathProvider = configPathProvider;
     }
 
     public virtual string? GetCurrentVersion()
@@ -50,7 +53,29 @@ public class VersionManager
     {
         try
         {
-            var json = await _downloadService.DownloadTextAsync(_settings.GetVersionListUrl());
+            string json;
+            var versionListSource = _settings.GetVersionListSource();
+            
+            // 判斷是本地檔案還是遠端 URL
+            if (IsLocalPath(versionListSource))
+            {
+                // 處理相對路徑和絕對路徑
+                var filePath = ResolveLocalPath(versionListSource);
+                _logger.LogInformation("從本地檔案讀取版本清單: {Source}", filePath);
+                
+                if (!File.Exists(filePath))
+                {
+                    throw new FileNotFoundException($"版本清單檔案不存在: {filePath}");
+                }
+                
+                json = await File.ReadAllTextAsync(filePath);
+            }
+            else
+            {
+                _logger.LogInformation("從遠端下載版本清單: {Source}", versionListSource);
+                json = await _downloadService.DownloadTextAsync(versionListSource);
+            }
+            
             var versionListData = JsonSerializer.Deserialize<JsonElement>(json);
 
             if (!versionListData.TryGetProperty("versions", out var versionsArray))
@@ -93,6 +118,59 @@ public class VersionManager
         {
             throw new Exception($"取得版本清單失敗: {ex.Message}");
         }
+    }
+
+    private bool IsLocalPath(string path)
+    {
+        // 檢查是否為 URL
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri))
+        {
+            return uri.Scheme == "file" || string.IsNullOrEmpty(uri.Scheme);
+        }
+        
+        // 檢查是否為相對路徑或絕對路徑
+        return !path.Contains("://");
+    }
+
+    private string ResolveLocalPath(string path)
+    {
+        // 如果是絕對路徑，直接返回
+        if (Path.IsPathRooted(path))
+        {
+            return path;
+        }
+        
+        // 如果是相對路徑，先嘗試相對於設定檔所在目錄
+        var configPath = GetCurrentConfigPath();
+        if (!string.IsNullOrEmpty(configPath) && File.Exists(configPath))
+        {
+            var configDirectory = Path.GetDirectoryName(configPath);
+            if (!string.IsNullOrEmpty(configDirectory))
+            {
+                var resolvedPath = Path.Combine(configDirectory, path);
+                if (File.Exists(resolvedPath))
+                {
+                    _logger.LogDebug("解析相對路徑基於設定檔目錄: {Path} -> {ResolvedPath}", path, resolvedPath);
+                    return resolvedPath;
+                }
+            }
+        }
+        
+        // 如果設定檔相對路徑不存在，嘗試相對於當前工作目錄
+        var currentDirPath = Path.Combine(Directory.GetCurrentDirectory(), path);
+        if (File.Exists(currentDirPath))
+        {
+            _logger.LogDebug("解析相對路徑基於當前目錄: {Path} -> {ResolvedPath}", path, currentDirPath);
+            return currentDirPath;
+        }
+        
+        // 如果都不存在，返回原路徑（讓後續錯誤處理機制處理）
+        return path;
+    }
+
+    private string? GetCurrentConfigPath()
+    {
+        return _configPathProvider?.ConfigPath;
     }
 
     // 輔助方法：支援兩種命名格式

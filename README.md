@@ -1,6 +1,17 @@
-# UpdateVersionManager
+# UpdateVersionManager (UVM)
 
-支援多來源的版本管理工具，可從 Google Drive、GitHub Release 和 FTP 下載版本檔案，具備自動更新和版本切換功能。
+通用版本管理工具，支援多來源下載和多設定檔自動偵測，可管理不同應用的版本。
+
+## 🎯 新功能亮點
+
+### 🔧 多設定檔自動偵測
+- **自動偵測**: 根據當前工作目錄自動載入對應的設定檔
+- **多應用管理**: 在不同目錄下管理不同應用的版本（如 Node.js、Python、自定義應用）
+- **靈活配置**: 支援命令行參數、環境變數、當前目錄設定檔等多種配置方式
+
+### 🌐 SFTP 支援
+- 新增 **SFTP** 下載支援，適用於安全的檔案傳輸需求
+- 完整支援 SSH 金鑰認證和密碼認證
 
 ## 快速開始
 
@@ -14,6 +25,22 @@
 
 下載後可直接執行，無需安裝 .NET 運行時。
 
+### 設為環境變數（建議）
+
+將 UVM 加入系統 PATH，即可在任意目錄使用：
+
+**Windows**:
+```powershell
+# 將 uvm.exe 所在目錄加到 PATH
+$env:PATH += ";C:\path\to\uvm"
+```
+
+**Linux/macOS**:
+```bash
+# 加到 ~/.bashrc 或 ~/.zshrc
+export PATH="/path/to/uvm:$PATH"
+```
+
 ### 從原始碼建置
 
 如果您想要從原始碼建置，請參考下方的建置說明。
@@ -21,12 +48,60 @@
 ## 功能特色
 
 - 🚀 自動檢查並更新到最新版本
-- 📦 多來源下載支援（Google Drive、GitHub、FTP）
+- 📦 多來源下載支援（Google Drive、GitHub、HTTP、FTP、SFTP）
 - 🔄 版本間快速切換
 - 🔒 SHA256 檔案完整性驗證
 - 🔗 智慧型符號連結或目錄複製
-- ⚙️ 支援 JSON 設定檔配置
+- ⚙️ 多設定檔自動偵測
 - 🌐 自動偵測 URL 來源類型
+- 📂 多應用版本管理
+
+## 多設定檔使用方式
+
+### 設定檔搜尋順序
+1. **命令行參數**: `--config <path>` 或 `-c <path>`
+2. **環境變數**: `UVM_CONFIG` 指定的路徑
+3. **當前目錄**: 依序搜尋 `uvm.json`, `appsettings.json`, `versions.json`
+4. **預設設定**: 應用程式內建的 `appsettings.json`
+
+### 使用範例
+
+**管理 Node.js 版本 (NVM 風格)**:
+```bash
+# 建立 nvm 目錄
+mkdir nvm && cd nvm
+
+# 創建 uvm.json 和 versions.json
+# ... (設定檔內容請參考 MULTI_CONFIG_GUIDE.md)
+
+# 使用 (自動偵測當前目錄設定檔)
+uvm list-remote    # 列出可用的 Node.js 版本  
+uvm install 18.19.0
+uvm use 18.19.0
+```
+
+**管理自定義應用**:
+```bash
+# 建立應用目錄  
+mkdir myapp && cd myapp
+
+# 創建 uvm.json (使用 Google Drive 或其他來源)
+# ...
+
+# 使用
+uvm install latest
+uvm update
+```
+
+**跨目錄使用指定設定檔**:
+```bash
+# 使用命令行參數指定設定檔
+uvm --config ./nvm/uvm.json list-remote
+
+# 使用環境變數
+export UVM_CONFIG="./myapp/uvm.json"  
+uvm install latest
+```
 
 ## 多來源下載支援
 
@@ -43,11 +118,15 @@
    - URL 格式：`https://github.com/user/repo/releases/download/v1.0.0/file.zip`
    - 或原始內容：`https://raw.githubusercontent.com/user/repo/main/file.txt`
 
-3. **FTP/FTPS** - 適用於企業內部部署
+3. **SFTP** - 安全檔案傳輸協定 🆕
+   - URL 格式：`sftp://username:password@hostname:port/path/file.zip`
+   - 支援 SSH 金鑰認證
+
+4. **FTP/FTPS** - 適用於企業內部部署
    - URL 格式：`ftp://example.com/path/file.zip`
    - 支援匿名和認證登入
 
-4. **HTTP/HTTPS** - 通用網路資源
+5. **HTTP/HTTPS** - 通用網路資源
    - URL 格式：`https://example.com/file.zip`
 
 ### URL 自動偵測
