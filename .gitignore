@@ -52,3 +52,12 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Test and temporary directories
+test-*/
+TestResults*/
+logs/
+
+# Temporary project files
+PROJECT_*.md
+SELF_UPDATE_*.md

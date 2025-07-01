@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Serilog;
 using System.Text;
+using System.Text.Json;
 using System.Reflection;
 
 // 設定 Console 編碼為 UTF-8
@@ -90,25 +91,39 @@ static IConfiguration BuildConfiguration(string environment, string? customConfi
         {
             // 創建一個臨時的配置結構，包裝 versions.json
             var versionsJson = File.ReadAllText(customConfigPath);
-            var tempConfig = $@"{{
-  ""UpdateVersionManager"": {{
-    ""VersionListSource"": ""{customConfigPath}"",
-    ""LocalBaseDir"": ""app_versions"",
-    ""CurrentVersionFile"": ""current_version.txt"",
-    ""TempExtractPath"": ""temp_update"",
-    ""ZipFilePath"": ""update.zip"",
-    ""AppLinkName"": ""current"",
-    ""VerboseOutput"": false
-  }}
-}}";
-            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(tempConfig)))
+            
+            // 使用正確的 JSON 格式，避免路徑轉義問題
+            var tempConfig = new
             {
-                builder.AddJsonStream(stream);
-            }
+                UpdateVersionManager = new
+                {
+                    VersionListSource = customConfigPath,
+                    LocalBaseDir = "app_versions",
+                    CurrentVersionFile = "current_version.txt",
+                    TempExtractPath = "temp_update",
+                    ZipFilePath = "update.zip",
+                    AppLinkName = "current",
+                    VerboseOutput = false
+                }
+            };
+            
+            // 使用 JsonSerializer 序列化避免手動字符串拼接的問題
+            var tempConfigJson = System.Text.Json.JsonSerializer.Serialize(tempConfig, new JsonSerializerOptions 
+            { 
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+            });
+            
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(tempConfigJson));
+            stream.Position = 0; // 確保流位置在開頭
+            builder.AddJsonStream(stream);
         }
         else
         {
-            builder.AddJsonFile(customConfigPath, optional: false, reloadOnChange: true);
+            // 處理相對路徑：相對於當前工作目錄
+            var configPath = Path.IsPathRooted(customConfigPath) 
+                ? customConfigPath 
+                : Path.Combine(Directory.GetCurrentDirectory(), customConfigPath);
+            builder.AddJsonFile(configPath, optional: false, reloadOnChange: true);
         }
         
         builder.AddEnvironmentVariables();

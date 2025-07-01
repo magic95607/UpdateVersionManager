@@ -2,19 +2,19 @@
     "versions": [
         {
             "version": "1.2.0",
-            "downloadUrl": "https://drive.google.com/uc?export=download&id=1GOXBXRCE4fIhpyA5MeAdM56XMaLGLM9O",
-            "sha256": "2970ac6457692a2a13df1c2dc53bf7dd8e824aae66fe0d3eeb1dd06fb14b0e64",
-            "size": 274,
-            "releaseDate": "2025-06-27",
-            "description": "Version 1.2.0"
+            "downloadUrl": "https://github.com/yourusername/yourapp/releases/download/v1.2.0/app-v1.2.0.zip",
+            "sha256": "abc123def456789...",
+            "size": 1048576,
+            "releaseDate": "2025-01-15",
+            "description": "Latest version with new features"
         },
         {
-            "Version": "1.1.0",
-            "DownloadUrl": "https://drive.google.com/uc?export=download&id=1Wo8IDjopyvSO9HVe6uy31B28SoDvkErO",
-            "Sha256": "0b78267d1bfcd757f3483f49ed6c9eb859afad6dc28a8d5e1c31eec831acfb90",
-            "Size": 208,
-            "ReleaseDate": "2025-06-27",
-            "Description": "Version 1.1.0"
+            "version": "1.1.0",
+            "downloadUrl": "https://github.com/yourusername/yourapp/releases/download/v1.1.0/app-v1.1.0.zip",
+            "sha256": "def456abc789123...",
+            "size": 950000,
+            "releaseDate": "2024-12-01",
+            "description": "Bug fixes and improvements"
         }
     ]
 }

@@ -62,7 +62,7 @@ public static class CommandHandler
                 if (parameters.Length >= 3)
                     await GenerateVersionInfo(parameters[0], parameters[1], parameters[2], output);
                 else
-                    output.WriteConsoleOnly("使用方式: uvm generate <版本號> <zip檔案路徑> <Google Drive檔案ID>");
+                    output.WriteConsoleOnly("使用方式: uvm generate <版本號> <zip檔案路徑> <下載URL>");
                 break;
             case "help":
             case "-h":
@@ -153,7 +153,7 @@ public static class CommandHandler
         output.WriteConsoleOnly("  current                             顯示當前使用的版本");
         output.WriteConsoleOnly("  clean <version>                     刪除指定版本");
         output.WriteConsoleOnly("  hash <檔案路徑>                     計算檔案的 SHA256");
-        output.WriteConsoleOnly("  generate <版本> <zip檔> <檔案ID>     產生版本資訊");
+        output.WriteConsoleOnly("  generate <版本> <zip檔> <下載URL>     產生版本資訊");
         output.WriteConsoleOnly("  check, info                         顯示當前連結資訊");
         output.WriteConsoleOnly("  help                                顯示此幫助訊息");
         output.WriteConsoleOnly("");
@@ -316,12 +316,12 @@ public static class CommandHandler
         }
     }
 
-    private static async Task GenerateVersionInfo(string version, string zipFilePath, string googleDriveFileId, IOutputService output)
+    private static async Task GenerateVersionInfo(string version, string zipFilePath, string downloadUrl, IOutputService output)
     {
         try
         {
             var fileService = new FileService(NullLogger<FileService>.Instance);
-            var versionInfo = await fileService.GenerateVersionInfoAsync(version, zipFilePath, googleDriveFileId);
+            var versionInfo = await fileService.GenerateVersionInfoAsync(version, zipFilePath, downloadUrl);
             await fileService.SaveVersionInfoToJsonAsync(versionInfo);
 
             output.WriteConsoleOnly("✅ 版本資訊已產生:");

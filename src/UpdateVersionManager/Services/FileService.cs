@@ -59,7 +59,7 @@ public class FileService : IFileService
         }
     }
 
-    public async Task<VersionInfo> GenerateVersionInfoAsync(string version, string zipFilePath, string googleDriveFileId)
+    public async Task<VersionInfo> GenerateVersionInfoAsync(string version, string zipFilePath, string downloadUrl)
     {
         if (!File.Exists(zipFilePath))
             throw new FileNotFoundException($"ZIP 檔案不存在: {zipFilePath}");
@@ -70,7 +70,7 @@ public class FileService : IFileService
         return new VersionInfo
         {
             Version = version,
-            DownloadUrl = $"https://drive.google.com/uc?export=download&id={googleDriveFileId}",
+            DownloadUrl = downloadUrl,
             Sha256 = sha256,
             Size = fileSize,
             ReleaseDate = DateTime.Now.ToString("yyyy-MM-dd"),
