@@ -21,18 +21,37 @@ public class SymbolicLinkService : ISymbolicLinkService
             _logger.LogInformation("嘗試建立符號連結: {LinkPath} -> {TargetPath}", linkPath, Path.GetFullPath(targetPath));
             Console.WriteLine($"[SymbolicLink] 嘗試建立符號連結: {Path.GetFileName(linkPath)} -> {Path.GetFileName(targetPath)}");
 
-            var process = new Process
+            Process process;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                StartInfo = new ProcessStartInfo
+                process = new Process
                 {
-                    FileName = "cmd.exe",
-                    Arguments = $"/c mklink /D \"{linkPath}\" \"{Path.GetFullPath(targetPath)}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
-            };
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/c mklink /D \"{linkPath}\" \"{Path.GetFullPath(targetPath)}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    }
+                };
+            }
+            else
+            {
+                process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "/bin/ln",
+                        Arguments = $"-s \"{Path.GetFullPath(targetPath)}\" \"{linkPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    }
+                };
+            }
 
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync();
@@ -48,18 +67,7 @@ public class SymbolicLinkService : ISymbolicLinkService
             else
             {
                 _logger.LogWarning("符號連結建立失敗，退出碼: {ExitCode}, 錯誤: {Error}", process.ExitCode, error.Trim());
-                
-                // 檢查常見的錯誤原因
-                if (error.Contains("需要提高的權限") || error.Contains("privilege"))
-                {
-                    _logger.LogWarning("需要管理員權限才能建立符號連結");
-                    Console.WriteLine("[SymbolicLink] ⚠️ 需要管理員權限才能建立符號連結");
-                }
-                else
-                {
-                    Console.WriteLine($"[SymbolicLink] ❌ 符號連結建立失敗");
-                }
-
+                Console.WriteLine($"[SymbolicLink] ❌ 符號連結建立失敗");
                 return false;
             }
         }
